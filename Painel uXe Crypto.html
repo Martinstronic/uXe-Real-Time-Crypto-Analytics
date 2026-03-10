@@ -851,7 +851,11 @@ function atualizarComAnimacao(el, novoValor) {
   
 }
 
+const btnOiPos5m = document.getElementById("btn-oipos-5m");
+if (btnOiPos5m) btnOiPos5m.onclick = () => ativarFiltro("oi>=5-5m");
 
+const btnOiNeg5m = document.getElementById("btn-oineg-5m");
+if (btnOiNeg5m) btnOiNeg5m.onclick = () => ativarFiltro("oi<=-5-5m");
 
 (function initFeedToggle(){
   const btn = document.getElementById("btn-radar-feed");
@@ -919,27 +923,6 @@ function atualizarMiniMapaCache(arr) {
   });
   tsMiniCache = Date.now();
 }
-
-
-// Botões
-document.getElementById("btn-oipos-5m").onclick = () =>
-  ativarFiltro("oi>=3-5m");
-
-document.getElementById("btn-oipos-15m").onclick = () =>
-  ativarFiltro("oi>=3-15m");
-
-document.getElementById("btn-oipos-1h").onclick = () =>
-  ativarFiltro("oi>=3-1h");
-
-document.getElementById("btn-oineg-5m").onclick = () =>
-  ativarFiltro("oi<=-3-5m");
-
-document.getElementById("btn-oineg-15m").onclick = () =>
-  ativarFiltro("oi<=-3-15m");
-
-document.getElementById("btn-oineg-1h").onclick = () =>
-  ativarFiltro("oi<=-3-1h");
-
 
 
 let ultimaInicializacao = Date.now();
@@ -3394,6 +3377,7 @@ document.getElementById("btn-reset-alertas").addEventListener("click", () => {
 
 
   </script>
+
 
 
 
