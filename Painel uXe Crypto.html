@@ -2040,32 +2040,31 @@ function conectarWSServidor() {
       // =======================================================
       // 📦 Histórico inicial (candle_hist → preenchimento inicial)
       // =======================================================
-      if (msg.type === "candle_hist") {
+        if (msg.type === "candle_hist") {
         const { symbol, tf, candles } = msg;
         if (tf !== "5m" || !Array.isArray(candles)) return;
-
+      
         if (!window.candlesHist) window.candlesHist = {};
         window.candlesHist[symbol] = candles
           .map(c => ({
             open: Number(c.open),
             close: Number(c.close),
             vol: Number(c.vol ?? 0),
-            exp: Number(c.exp),
-            volRel: Number(c.volRel),
+            exp: Number.isFinite(Number(c.exp)) ? Number(c.exp) : 50,
+            volRel: Number.isFinite(Number(c.volRel)) ? Number(c.volRel) : 1,
             ts: Number(c.ts ?? Date.now())
           }))
           .slice(-30);
-
-        
+      
         const linha = document.getElementById(`row-${symbol}`);
         if (linha) {
           const sparkCell = linha.querySelector(".col-spark");
           if (sparkCell && typeof gerarSparkSVG === "function") {
-            const sparkSvg = gerarSparkSVG(window.candlesHist[symbol], {}, symbol);
+            const sparkSvg = gerarSparkSVG(window.candlesHist[symbol], symbol);
             sparkCell.innerHTML = sparkSvg;
           }
         }
-
+      
         return;
       }
 
@@ -3395,6 +3394,7 @@ document.getElementById("btn-reset-alertas").addEventListener("click", () => {
 
 
   </script>
+
 
 
 
