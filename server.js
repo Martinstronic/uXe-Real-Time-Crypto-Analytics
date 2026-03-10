@@ -1607,8 +1607,8 @@ async function obterTopAtivosRadar(limitTotal = MAX_ATIVOS_RADAR) {
   const topVolume = candidatos.slice(0, LIMIT_PRIORITARIOS).map(d => d.symbol);
   top100Volume = new Set(candidatos.slice(0, 10).map(d => d.symbol));
   top50Volume = new Set(candidatos.slice(0, 5).map(d => d.symbol)); 
-  console.log(`📊 Top5 atualizado (${top100Volume.size} símbolos).`);
-  console.log(`💎 Top10 volume dinâmico atualizado (${top50Volume.size} símbolos).`);
+  console.log(`📊 Top10 atualizado (${top100Volume.size} símbolos).`);
+  console.log(`💎 Top5 volume dinâmico atualizado (${top50Volume.size} símbolos).`);
 
  
   const extras =[];
@@ -1645,7 +1645,7 @@ async function obterTopAtivosRadar(limitTotal = MAX_ATIVOS_RADAR) {
 
 async function atualizarTopRadar() {
   try {
-    const dados = await obterTopAtivosRadar(MAX_ATIVOS_RADAR, LIMIT_PRIORITARIOS);
+    const dados = await obterTopAtivosRadar(MAX_ATIVOS_RADAR);
     cacheTopRadar = { ts: Date.now(), dados };
 
    
@@ -1665,30 +1665,47 @@ async function atualizarTopRadar() {
 
 
 async function inicializarServer() {
-  await carregarContratosFuturos(); 
+  await carregarContratosFuturos();
   console.log("✅ Contratos futuros carregados, iniciando TopRadar...");
 
-  
   await atualizarTopRadar();
   setInterval(atualizarTopRadar, 60_000);
 
   setTimeout(() => {
     iniciarCronsOi();
   }, 120_000);
-  
+
+  setTimeout(() => {
+    try {
+      const { prioritarios, secundarios } = cacheTopRadar.dados || {};
+      const symbols = [...new Set([...prioritarios, ...secundarios])].filter(s =>
+        validFuturesSymbols.has(s)
+      );
+
+      if (!symbols.length) {
+        console.error("❌ Nenhum símbolo válido encontrado no radar para iniciar WS!");
+        return;
+      }
+
+      console.log(`📡 WS Binance iniciado com ${symbols.length} símbolos em lotes`);
+      iniciarWsBinanceLotes(symbols);
+    } catch (err) {
+      console.error("❌ Erro ao inicializar WS Binance:", err.message);
+    }
+  }, 30_000);
 }
 
 // =========================[ RADAR OI EM LOTES COM AUTO-THROTTLE ]=========================
 let radarIndexPri = 0;
 let radarIndexSec = 0;
 
-let batchPri = 20;
-let batchSec = 50;
+let batchPri = 5;
+let batchSec = 10;
 
 const MIN_BATCH_PRI = 5;
 const MIN_BATCH_SEC = 10;
-const MAX_BATCH_PRI = 30;
-const MAX_BATCH_SEC = 80;
+const MAX_BATCH_PRI = 10;
+const MAX_BATCH_SEC = 15;
 
 let statsRadar = { erros: 0, reqs: 0, tempos: [] };
 
@@ -2046,7 +2063,7 @@ async function radarVolumeProcessar(symbol) {
 
 app.get("/top-ativos", async (req, res) => {
   try {
-    const { prioritarios, secundarios } = await obterTopAtivosRadar(MAX_ATIVOS_RADAR); 
+    const { prioritarios, secundarios } = cacheTopRadar.dados || { prioritarios: [], secundarios: [] };
     const listaUnica = [...prioritarios, ...secundarios];
     res.json(listaUnica);
   } catch (err) {
@@ -2684,8 +2701,8 @@ function iniciarWSLiquidados() {
 }
 
 
-// ===============================[ 19) INICIALIZA WS / SERVER ]===============================
-inicializarServer();
+// ===============================[ 19) INICIALIZA WS ]===============================
+
 
 
 const { WebSocketServer } = require("ws");
@@ -2815,9 +2832,9 @@ function iniciarWsBinanceLotes(symbols) {
   enqueueRSI("BTCUSDT", "high");
 
   
-  primeRsiForList(symbols.slice(0, 20), "high");
+  primeRsiForList(symbols.slice(0, 5), "high");
   if (process.env.DEBUG_RSI === "1")
-    console.log("[RSI-PRIME] enqueued top 100 symbols for RSI priming");
+    console.log("[RSI-PRIME] enqueued top 5 symbols for RSI priming");
 
   // =====================================================
   // 🧠 Delay adaptativo conforme número de pares
@@ -2998,47 +3015,6 @@ function broadcast(obj) {
 }
 
 
-// ==========================================
-// 🚀 Inicialização ws
-// ==========================================
-
-(async () => {
-  try {
-    
-    await carregarContratosFuturos();
-
-    
-    const todosSimbolos = Array.from(validFuturesSymbols);
-    if (!todosSimbolos.length) {
-      console.error("❌ Nenhum contrato futuro carregado!");
-      return;
-    }
-
-    
-    const { prioritarios, secundarios } = await obterTopAtivosRadar();
-
-    
-    const symbols = [...new Set([...prioritarios, ...secundarios])].filter(s =>
-      validFuturesSymbols.has(s)
-    );
-
-    if (!symbols.length) {
-      console.error("❌ Nenhum símbolo válido encontrado no radar!");
-      return;
-    }
-
-    console.log(`✅ ${validFuturesSymbols.size} contratos futuros ativos carregados`);
-    console.log(`📡 WS Binance iniciado com ${symbols.length} símbolos em lotes`);
-
-    
-    iniciarWsBinanceLotes(symbols);
-
-  } catch (err) {
-    console.error("❌ Erro ao inicializar WS Binance:", err.message);
-  }
-})();
-
-
 function broadcastToSymbol(symbol, payload) {
   const set = symbolSubscribers.get(symbol);
   if (!set) return;
@@ -3048,21 +3024,6 @@ function broadcastToSymbol(symbol, payload) {
   }
 }
 
-function subscribeClient(ws, symbols = []) {
-  symbols.forEach(s => {
-    const sym = s.toUpperCase();
-    if (!symbolSubscribers.has(sym)) symbolSubscribers.set(sym, new Set());
-    symbolSubscribers.get(sym).add(ws);
-  });
- // recomputeStreams();
-}
-
-function unsubscribeClient(ws) {
-  for (const [sym, set] of symbolSubscribers.entries()) {
-    set.delete(ws);
-    if (set.size === 0) closeStream(sym);
-  }
-}
 
 wss.on("connection", (ws) => {
   clientesAtivos.add(ws);
@@ -3090,67 +3051,7 @@ wss.on("connection", (ws) => {
 
 
 let recomputeTimer = null;
-function recomputeStreams() {
-  if (recomputeTimer) return;
-  recomputeTimer = setTimeout(() => {
-    recomputeTimer = null;
-    const allSymbols = Array.from(symbolSubscribers.keys());
-    const batches = [];
-    for (let i = 0; i < allSymbols.length; i += 100) {
-      batches.push(allSymbols.slice(i, i + 100));
-    }
 
-  
-    for (const [key, obj] of binanceStreams.entries()) {
-      if (!batches.find(b => b.join(",") === obj.symbols.join(","))) {
-        try { obj.ws.close(); } catch {}
-        binanceStreams.delete(key);
-      }
-    }
-
-    
-    batches.forEach((batch) => {
-      const key = batch.join(",");
-      if (binanceStreams.has(key)) return;
-      const streams = batch.map(s => s.toLowerCase() + "@ticker").join("/");
-      const url = `wss://stream.binance.com:9443/stream?streams=${streams}`;
-      const ws = new WebSocket(url);
-      const obj = { ws, symbols: batch };
-      binanceStreams.set(key, obj);
-
-      ws.on("open", () => console.log("📡 Binance stream ativo:", batch.length, "símbolos"));
-      ws.on("message", (msg) => {
-        try {
-          const data = JSON.parse(msg);
-          const s = data?.data?.s;
-          if (s) {
-            const payload = {
-              type: "ticker",
-              symbol: s,
-              price: Number(data.data.c),
-              volume: Number(data.data.q),
-              ts: Date.now()
-            };
-            broadcastToSymbol(s, payload);
-          }
-        } catch (e) { }
-      });
-      ws.on("close", () => {
-        
-        binanceStreams.delete(key);
-        setTimeout(recomputeStreams, 2000);
-      });
-      ws.on("error", (err) => {
-        console.error("❌ Erro stream Binance:", err.message);
-        try { ws.close(); } catch {}
-      });
-    });
-  }, 500);
-}
-
-function closeStream(symbol) {
-  recomputeStreams();
-}
 
 
 // ===============================[ 22) START SERVER ]===============================
@@ -3161,6 +3062,8 @@ app.listen(PORT, () => {
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "Painel uXe Crypto.html"));
 });
+
+inicializarServer();
 
 
 
