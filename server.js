@@ -26,7 +26,8 @@ app.use(express.json());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-const PORT = process.env.PORT || 3000;
+const PORT = Number(process.env.PORT) || 3000;
+const WS_PORT = PORT + 1;
 
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -2693,7 +2694,7 @@ inicializarServer();
 const { WebSocketServer } = require("ws");
 
 
-const wss = new WebSocketServer({ port: PORT + 1 });
+const wss = new WebSocket.Server({ port: WS_PORT });
 const clientesAtivos = new Set();         
 const symbolSubscribers = new Map();      
 const binanceStreams = new Map();        
