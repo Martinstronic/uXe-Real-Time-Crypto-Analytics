@@ -1729,7 +1729,7 @@ return null;
 }
 
 
-async function fetchKlines(symbol, interval, limit = 200) {
+async function fetchKlines(symbol, interval, limit = 50) {
   try {
     const url = `${API_BASE}/klines/${symbol}/${interval}?limit=${limit}`;
     const resp = await fetch(url);
@@ -2785,7 +2785,7 @@ async function reordenarOuAdicionarLinhas(novaOrdemSymbols) {
 
 
 
-async function obterTopAtivosPorVolume(limit = 450) {
+async function obterTopAtivosPorVolume(limit = 50) {
   try {
     const data = await fetch(`${API_BASE}/top-ativos?limit=${limit}`)
       .then(r => r.json());
@@ -3420,6 +3420,7 @@ document.getElementById("btn-reset-alertas").addEventListener("click", () => {
 
   notificar("✅ Todos os alertas foram resetados e o limite foi restaurado.");
 });
+
 
 
 
