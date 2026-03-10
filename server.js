@@ -2405,7 +2405,10 @@ if (caps5m.capLong && caps1h.capLong) {
 
     return {
       symbol,
-      preco: precoCache.get(symbol) ?? null,
+      preco:
+        Number.isFinite(preco) && preco > 0
+        ? preco
+        : (cacheTicker.get(symbol)?.price ?? precoCache.get(symbol) ?? null),
       oiData,
       lsrData,
       lsarData,
@@ -2485,10 +2488,10 @@ app.get("/score-lote", async (req, res) => {
               volRelObj[`volRel${tf}`] = entry?.volRel ?? null;
             }
 
-           
+           const score = await montarScore(s, oiData);
             return {
               symbol: s,
-              preco: precoCache.get(s) ?? null,
+              preco: score?.preco ?? cacheTicker.get(s)?.price ?? precoCache.get(s) ?? null,
               rsi: rsiObj,
               exp: expObj,
               volRel: volRelObj,
@@ -2756,6 +2759,9 @@ function configurarListenersBinance(ws, lote, idx) {
        
         if (!ultimo || Math.abs(price - ultimo.price) / ultimo.price > 0.0001 || agora - ultimo.ts > 5000) {
           cacheTicker.set(symbol, { price, ts: agora });
+          if (typeof precoCache !== "undefined" && precoCache?.set) {
+            precoCache.set(symbol, price);
+          }
           broadcast({ type: "ticker", symbol, price });
         }
       }
@@ -3082,6 +3088,7 @@ wss.on("connection", (ws) => {
 
 
 let recomputeTimer = null;
+
 
 
 
