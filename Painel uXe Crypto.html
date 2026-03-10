@@ -1922,9 +1922,9 @@ let wsConectado = false;
 let retryCount = 0;
 
 function conectarWSServidor() {
-  const url = location.hostname.includes("localhost")
-    ? "ws://localhost:3001"
-    : "wss://uxe-crypto-analytics.onrender.com:3001";
+  const protocol = location.protocol === "https:" ? "wss" : "ws";
+  const host = location.host;
+  const url = `${protocol}://${host}/ws`;
 
   wsServer = new WebSocket(url);
 
@@ -3426,6 +3426,7 @@ document.getElementById("btn-reset-alertas").addEventListener("click", () => {
 
 
   </script>
+
 
 
 
