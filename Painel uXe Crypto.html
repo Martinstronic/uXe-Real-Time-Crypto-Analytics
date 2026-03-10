@@ -2825,7 +2825,7 @@ async function prepararCandlesIniciais() {
     }
 
     console.log("🕯️ Iniciando pré-carregamento de candles...");
-    await inicializarCandles(symbolsParaExibir.slice(0, 200)); 
+    await inicializarCandles(symbolsParaExibir.slice(0, 10)); 
 
     console.log("✅ Candles iniciais carregados com sucesso!");
   } catch (err) {
@@ -2844,7 +2844,7 @@ async function inicializarTudo() {
       symbolsParaExibir = favoritos;
       symbolsOriginais = [...symbolsParaExibir];
     } else {
-      symbolsParaExibir = await obterTopAtivosPorVolume(450);
+      symbolsParaExibir = await obterTopAtivosPorVolume(50);
       symbolsOriginais = [...symbolsParaExibir];
     }
 
@@ -3426,4 +3426,5 @@ document.getElementById("btn-reset-alertas").addEventListener("click", () => {
 
 
   </script>
+
 
