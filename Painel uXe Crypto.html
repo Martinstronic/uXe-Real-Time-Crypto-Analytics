@@ -1,0 +1,3427 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Painel uXe Crypto</title>
+  <style>
+    body {
+      background-color: #0d1117;
+      font-family: 'Segoe UI', sans-serif;
+      color: #fff;
+      margin: 0;
+      padding: 20px;
+    }
+
+    h5 {
+      text-align: center;
+      font-size: 22px;
+      margin-bottom: 20px;
+    }
+
+    .cartoes-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      justify-content: space-evenly;
+    }
+
+    .card {
+      background-color: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 12px;
+      width: 200px;
+      text-align: center;
+      box-shadow: 0 0 8px rgba(255,255,255,0.05);
+    }
+
+    .card-wide {
+      width: 240px;
+    }
+
+    .card .titulo {
+      font-size: 13px;
+      color: #aaa;
+      margin-bottom: 6px;
+    }
+
+    .card .valor {
+      font-size: 20px;
+      font-weight: bold;
+    }
+
+    .bars-container {
+      display: flex;
+      justify-content: center;
+      gap: 2px;
+      margin-top: 6px;
+    }
+
+    .bar {
+      width: 4px;
+      height: 18px;
+      border-radius: 2px;
+    }
+
+    .bar.up {
+      background-color: #2ecc71;
+    }
+
+    .bar.down {
+      background-color: #e74c3c;
+    }
+
+    .up {
+      color: #2ecc71 !important;
+    }
+
+    .down {
+      color: #e74c3c;
+    }
+
+    .funding-up {
+  color: #2ecc71; /* Verde */
+}
+
+.funding-down {
+  color: #e74c3c; /* Vermelho */
+}
+
+    .rsi-card {
+      background-color: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 10px;
+      width: 220px;
+    }
+
+    .rsi-valor {
+      font-size: 22px;
+      font-weight: bold;
+      margin-bottom: 6px;
+    }
+
+    .rsi-valores span {
+      font-size: 13px;
+      margin: 0 2px;
+    }
+
+    .rsi-labels {
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+
+    .tabela-wrapper {
+      overflow-x: auto;
+      margin-top: 20px;
+    }
+
+    table.cockpit {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    table.cockpit thead {
+      background-color: #21262d;
+    }
+
+    table.cockpit th,
+    table.cockpit td {
+      padding: 6px 8px;
+      border: 1px solid #30363d;
+      text-align: center;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+      
+    .volume-5 { color: #00FFCC; }
+    .volume-4 { color: #00c59e; }
+    .volume-3 { color: #019174; }
+    .volume-2 { color: #ff7300; }
+    .volume-1 { color: #fff; }
+
+
+    .exp-9 { color: #00FFCC; } /* >200 */
+    .exp-8 { color: #00c59e; } /* >150 */
+    .exp-7 { color: #019174; } /* >100 */
+    .exp-6 { color: #015c4a; } /* >60 */
+    .exp-5 { color: #ff5252; } /* <= 30 */
+    .exp-4 { color: #ff2929; } /* <-100 */
+    .exp-3 { color: #ff7300; } /* <-510 */
+    .exp-2 { color: #FF1493; } /* <-200 */
+    .exp-1 { color: #fff; }    /* entre 31 e 59 - Neutro */
+
+    .trade-low  { color: #fff !important;  }
+    .trade-mid  { color: #f1c40f; }
+    .trade-high { color: #2ecc71; }
+
+    .fav-star {
+      cursor: pointer;
+      font-size: 14px;
+      color: #555;
+    }
+
+    .fav-star.active {
+      color: gold;
+    }
+
+    input, select, button {
+      background-color: #21262d;
+      color: #fff;
+      border: 1px solid #444;
+      border-radius: 4px;
+    }
+
+    button {
+      cursor: pointer;
+      padding: 6px 10px;
+    }
+
+    button:hover {
+      background-color: #30363d;
+    }
+
+    .top-bar {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 10px;
+      margin-top: 20px;
+      flex-wrap: wrap;
+    }
+
+    .candle-square {
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      margin: auto;
+    }
+
+    .candle-square.up {
+      background-color: #2ecc71;
+    }
+
+    .candle-square.down {
+      background-color: #e74c3c;
+    }
+
+    .vol-alto {
+  color: #00ff00; /* verde chamativo */
+  font-weight: bold;
+}
+.vol-normal {
+  color: inherit; /* mantém a cor padrão */
+}
+
+/* Animação leve de mudança */
+.valor-atualizado {
+  animation: pulse 0.5s ease-out;
+}
+
+.flash-green { background-color: rgba(0,255,0,0.2); transition: background-color 0.6s ease-out; }
+.flash-red   { background-color: rgba(255,0,0,0.2); transition: background-color 0.6s ease-out; }
+
+.spark svg {
+  display: block;
+}
+.sparkline-card svg {
+  width: 120px;
+  height: 40px;
+}
+
+
+/* 💡 Animação de atualização leve */
+.flash {
+  animation: flashChange 0.6s ease;
+}
+
+@keyframes flashChange {
+  0%   { background-color: rgba(255,255,255,0.15); }
+  100% { background-color: transparent; }
+}
+
+/* 💡 Animação leve para células atualizadas */
+.flash {
+  animation: flashHighlight 0.5s ease-in-out;
+}
+
+@keyframes flashHighlight {
+  0% { background-color: #444c56; }
+  50% { background-color: #6e7681; }
+  100% { background-color: transparent; }
+}
+
+.destaque {
+  background-color: #ffffff33;
+  transition: background-color 0.6s ease;
+}
+
+
+.tr-movida {
+  animation: moverLinha 0.5s ease-in-out;
+}
+@keyframes destaqueLinha {
+  0% { background-color: #ffeeba; }
+  100% { background-color: transparent; }
+}
+@keyframes moverLinha {
+  0% {
+    opacity: 0.3;
+    transform: translateY(-10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.alerta-preco {
+  width: 70px;
+  padding: 2px 4px;
+  font-size: 13px;
+  box-sizing: border-box;
+}
+
+
+.lista-alertas {
+    max-height: 200px; /* limita altura para não estourar o layout */
+    overflow-y: auto;  /* habilita rolagem vertical */
+    scrollbar-width: thin; /* Firefox */
+}
+
+.lista-alertas::-webkit-scrollbar {
+    width: 6px; /* largura da barra */
+}
+
+.lista-alertas::-webkit-scrollbar-thumb {
+    background-color: #888; 
+    border-radius: 3px;
+}
+
+.lista-alertas::-webkit-scrollbar-thumb:hover {
+    background-color: #555;
+}
+
+.alertas-ul {
+    max-height: 200px;
+    overflow-y: auto;
+    padding-right: 5px; /* espaço pro scroll não cobrir texto */
+}
+
+/* ZEBRA alternada padrão */
+tr.zebra-even { background-color: #111; }
+tr.zebra-odd  { background-color: #171717; }
+
+/* Capitulation highlight (sobrepõe zebra) */
+tr.cap-long-row {
+  background-color: rgba(2, 57, 82, 0.3) !important;
+}
+
+tr.cap-short-row {
+  background-color: rgba(255, 0, 0, 0.25) !important;
+}
+
+
+.col-grupo {
+  display: flex; 
+  flex-direction: column; 
+  align-items: center; 
+  gap: 6px;
+}
+
+.titulo-grupo {
+  font-size: 12px;
+  font-weight: bold;
+  margin-bottom: 4px;
+  color: #ccc;
+}
+
+
+.titulo-grupo {
+  font-size: 11px;
+  font-weight:bold;
+  color:#aaa;
+  margin-bottom:4px;
+}
+
+
+
+.titulo-linha {
+  min-width:200px;
+  font-weight:bold;
+  font-size:12px;
+  color:#aaa;
+}
+
+.linha-cells {
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+}
+
+.qBull { background: #016306; }
+.qBear { background: #a50303; }
+.q0    { background: #444; }
+
+.heat-cell-mini {
+  width: 60px; height: 40px;
+  border-radius:4px;
+  color:#fff;
+  font-size:11px;
+  text-align:center;
+  padding:2px;
+}
+
+.tooltip { position: absolute; background: #222; padding: 8px; border-radius: 6px; font-size: 12px; display: none; color: #fff; }
+
+.press-very-strong-long { color:#027a02; font-weight:bold; } /* 85–100 */
+.press-strong-long { color:#06fc06; font-weight:bold; } /* 70–84 */
+.press-long        { color:#70eb70; }                   /* 55–69  */
+.press-neutral     { color:#999; }                      /* 46–54  */
+.press-short       { color:#d15; }                      /* 31–45  */
+.press-strong-short { color:rgb(253, 61, 61); font-weight:bold; }    /* 30-16   */
+.press-very-strong-short { color:#d40e00; font-weight:bold; } /* 0-15 */
+.vol-spike { background: #cc9600; color:#000; font-weight:bold; }
+
+.flow-flag {
+   background: rgba(255, 221, 0, 0.4);
+   border: 1px solid #ffd700;
+}
+
+
+/* Botão com badge quando há novidades */
+#btn-radar-feed.has-new {
+  position: relative;
+  animation: pulse 1.2s infinite;
+}
+#btn-radar-feed.has-new::after {
+  content: "";
+  position: absolute;
+  top: -3px; right: -3px;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: #ff4d4f;
+}
+
+/* Painel lateral (colapsável) */
+#feed-panel {
+  position: fixed;
+  top: 0; right: 0;
+  width: 360px;
+  max-width: 85vw;
+  height: 100vh;
+  background: #0f1115;
+  border-left: 1px solid #1e222b;
+  box-shadow: -8px 0 24px rgba(0,0,0,.35);
+  transform: translateX(100%);
+  transition: transform .25s ease;
+  z-index: 1000; /* acima da tabela */
+  display: flex; flex-direction: column;
+}
+#feed-panel.open { transform: translateX(0); }
+
+/* Empurra layout quando feed está aberto */
+body.with-feed-open #main-wrap {
+  margin-right: 360px;
+  transition: margin-right .25s ease;
+}
+
+/* Header do painel */
+#feed-panel .feed-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid #1e222b;
+  background: #12151c;
+}
+#feed-panel .feed-title { font-weight: 600; }
+
+/* Conteúdo */
+#feed-conteudo.feed-content {
+  padding: 10px 12px;
+  overflow-y: auto;
+  flex: 1;
+}
+.feed-item {
+  padding: 8px 10px;
+  border: 1px solid #1e222b;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  line-height: 1.35;
+  background: #0b0e13;
+}
+
+/* Pequenos botões do header do feed */
+#feed-panel .mini {
+  font-size: 12px; padding: 4px 8px;
+  background: #1a1f2a; border: 1px solid #273042;
+  color: #cdd6f4; border-radius: 6px;
+}
+#feed-panel .mini:hover { filter: brightness(1.1); }
+
+@keyframes pulse {
+  0% { background-color: rgba(46, 204, 113, 0.2); }
+  100% { background-color: transparent; }
+}
+
+#icone-sino.ativo {
+  color: yellow;
+  animation: pulse 0.5s ease-in-out infinite alternate;
+}
+
+/* Cabeçalho fixo ao rolar */
+#painel thead th {
+  position: sticky;
+  top: 0;
+  background: #111; /* mesma cor da tabela */
+  z-index: 5;
+}
+
+
+button.filtro-ativo {
+  background: #2d89ef;   /* azul destaque */
+  color: white;
+  box-shadow: inset 2px 2px 6px rgba(0,0,0,0.4);
+  transform: translateY(1px);
+}
+
+/* Quando o sino está ativo para som */
+#icone-sino.som-ativo {
+  color: gold;
+  text-shadow: 0 0 6px yellow;
+}
+
+/* Animação rápida ao disparar alerta */
+#icone-sino.ativo {
+  transform: scale(1.3);
+  transition: transform 0.3s;
+}
+/* === Modal de Liquidações === */
+#modal-liquid {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  display: none;
+  justify-content: center;
+  align-items: center;
+  background: rgba(0,0,0,0.7);
+  z-index: 1000;
+}
+
+#modal-liquid .modal-content {
+  background: #111;
+  color: #eee;
+  padding: 20px;
+  border-radius: 10px;
+  width: 90%;
+  max-width: 800px;
+  max-height: 80vh;
+  overflow-y: auto;
+  font-family: monospace;
+  box-shadow: 0 0 15px rgba(0,255,150,0.3);
+}
+
+#modal-liquid h2 {
+  margin: 0 0 15px;
+  text-align: center;
+  font-size: 20px;
+  color: #0ff;
+  text-shadow: 0 0 5px #0ff;
+}
+
+/* Tabela */
+#modal-liquid table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+}
+
+#modal-liquid th, #modal-liquid td {
+  padding: 6px 10px;
+  text-align: left;
+  border-bottom: 1px solid #333;
+  white-space: nowrap;
+}
+
+#modal-liquid tr:nth-child(even) {
+  background: #1a1a1a;
+}
+
+#modal-liquid tr:nth-child(odd) {
+  background: #111;
+}
+
+/* Cabeçalhos de seção */
+#modal-liquid td[colspan="4"] {
+  background: #222 !important;
+  color: #0ff;
+  font-weight: bold;
+  text-align: center;
+  font-size: 14px;
+  border-top: 2px solid #0ff;
+  border-bottom: 2px solid #0ff;
+}
+
+/* Botão fechar */
+#modal-liquid .btn-close {
+  background: #ff3333;
+  color: #fff;
+  border: none;
+  padding: 5px 12px;
+  border-radius: 5px;
+  cursor: pointer;
+  float: right;
+  font-weight: bold;
+}
+
+#modal-liquid .btn-close:hover {
+  background: #cc0000;
+}
+
+#body-liquid tr:nth-child(even) { background:#111; }
+#body-liquid tr:nth-child(odd) { background:#1a1a1a; }
+#body-liquid tr.up { color:#0f0; font-weight:bold; }
+#body-liquid tr.down { color:#f55; font-weight:bold; }
+
+
+</style>
+</head>
+
+
+<body>
+  <h5>Painel uXe</h5>
+
+
+
+  <div id="cartoes-btc" class="cartoes-container">
+    <div class="card">
+      <div class="titulo">Preço BTC</div>
+      <div id="btc-price" class="valor">--</div>
+    </div>
+
+    <div class="card card-wide">
+      <div class="titulo">Variação % BTC</div>
+      <div id="btc-change" class="valor">--</div>
+    </div>
+
+    <div id="rsi-card-btc" class="card rsi-card">
+      <div class="titulo">RSI BTC (5m)</div>
+      <div class="rsi-valor" id="btc-rsi-central">--</div>
+      <div class="rsi-labels">1m 5m 15m 30m 1h 4h 1d</div>
+      <div class="rsi-valores" id="btc-rsi-valores">-- -- -- -- -- -- --</div>
+    </div>
+
+  <div class="card">
+  <div class="titulo">Volume BTC (5m)</div>
+  <div id="btc-trades" class="valor">--</div>
+  <div id="spark-btc" class="bars-container"></div>
+</div>
+
+
+    <div class="card">
+      <div class="titulo">Open Interest BTC (5m)</div>
+      <div id="btc-oi" class="valor">--</div>
+      <div id="btc-bars-oi" class="bars-container"></div>
+    </div>
+
+    <div class="card">
+      <div class="titulo">Long/Short Ratio BTC (5m)</div>
+      <div id="btc-lsr" class="valor">--</div>
+      <div id="btc-bars-lsr" class="bars-container"></div>
+    </div>
+    
+    <div class="card">
+      <div class="titulo">Funding Rate BTC</div>
+      <div id="btc-fr" class="valor">--</div>
+      <div id="btc-bars-fr" class="bars-container"></div>
+    </div>
+  </div>
+
+  
+  
+
+  <div id="status-bot" style="color:#fff; font-size:14px; margin:10px 0; font-weight:bold;">
+    🛰️ Status do Bot: <span id="bot-status">verificando...</span>
+  </div>
+
+     <!-- Legenda -->
+  <div id="legenda-tabela" style="font-size:14px; color:#888; justify-content: center;">
+    📌 <strong>Legenda:</strong> 💹 Volume 5m Spike 30% | 🆘 Stop Hunt 5m |  ⚖️ Funding Extremado | 🚀 Long | 🔻 Short | 💥🟦1h": "Capitulação Long 1h | 💥🟥1h": "Capitulação Short 1h 
+        
+  </div>
+
+      <!-- Legenda -->
+  <div id="legenda-tabela2" style="font-size:14px; color:#888; justify-content: center;">
+    📊100 = Máxima Lateralização | 📊80-99 = Lateralização Forte | 📊50–79 = Lateralização Moderada | 📊20-49 = Lateralização Fraca | 🔄0-19 = Sem Lateralização
+    </div>
+    <div id="legenda-tabela3" style="font-size:14px; color:#888; justify-content: center;">
+    📈81–100 = Pressão Máxima Compra | 📈 60–80 = Pressão Forte Compra | 💱↔41–59 = Equilíbrio Compra x Venda | 📉21 - 40 = Pressão de Venda | 📉0 20 = Pressão Máxima Venda
+    </div>
+    <!-- Legenda   const labels = {
+      q1: "Q1 🟢 (Long + RSI alto)",
+      q2: "Q2 🔵 (Long + RSI ~ neutro)",
+      q3: "Q3 🟠 (Short + RSI alto)",
+      q4: "Q4 🔴 (Short + RSI baixo)",
+      q0: "Q0 ⚪ (Neutro)"
+    }; -->
+
+  <!-- Instruções para alertas -->
+<div id="instrucoes-alerta" style="font-size:14px; color:#555; margin-top:5px; justify-content: center;">
+  📢 <strong>Como usar os alertas:</strong> Basta inserir o valor desejado no campo "Alerta" da tabela. 
+  Para variação <strong>acima</strong>, digite apenas o valor numérico ou percentual (ex.: <code>123000</code> ou <code>5%</code>).
+  Para variação <strong>abaixo</strong>, digite <code>&lt;123000</code> ou <code>&lt;5%</code>.
+</div>
+
+ <div class="top-bar" style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap; margin-bottom: 10px; font-size: 14px; color: #888; justify-content: flex-start;">
+
+  <input id="busca-token" placeholder="Buscar token..." style="padding: 4px 4px; font-size: 14px;"/>
+  <select id="filtro-ordenacao" style="padding: 4px 8px; font-size: 14px;">
+    <option value="top50">Top Tokens</option>
+    <option value="oi-5m">Open Interest 5m</option>
+    <option value="oiusd">Open Interest 5m USD</option>
+    <option value="oi-var-5m">Variação % OI 5m</option>
+    <option value="oi-var-15m">Variação % OI 15m</option>
+    <option value="oi-var-1h">Variação % OI 1h</option>
+    <option value="volume-5m">Volume 5m</option>
+    <option value="volume-15m">Volume 15m</option>
+    <option value="volume-1d">Volume 1d</option>
+    <option value="expbtc-5m">Exposição BTC 5m</option>
+    <option value="expbtc-15m">Exposição BTC 15m</option>
+    <option value="expbtc-1d">Exposição BTC 1d</option>
+    <option value="expeth-5m">Exposição ETH 5m</option>
+    <option value="expeth-15m">Exposição ETH 15m</option>
+    <option value="expeth-1d">Exposição ETH 1d</option>
+  </select>
+
+  <button id="btn-qbull" onclick="ativarFiltro('qbull', this)">Qbull</button>
+  <button id="btn-qbear" onclick="ativarFiltro('qbear', this)">Qbear</button>
+  <button id="btn-flow" onclick="ativarFiltro('flow', this)">FlowStrong</button>
+  <button id="btn-capit" onclick="ativarFiltro('capitulation', this)">Capitulação</button>
+
+  <button id="btn-oipos-5m" onclick="ativarFiltro('oi>=3-5m', this)">OI +3% (5m)</button>
+  <button id="btn-oipos-15m" onclick="ativarFiltro('oi>=3-15m', this)">OI +3% (15m)</button>
+  <button id="btn-oipos-1h" onclick="ativarFiltro('oi>=3-1h', this)">OI +3% (1h)</button>
+
+  <button id="btn-oineg-5m" onclick="ativarFiltro('oi<=-3-5m', this)">OI -3% (5m)</button>
+  <button id="btn-oineg-15m" onclick="ativarFiltro('oi<=-3-15m', this)">OI -3% (15m)</button>
+  <button id="btn-oineg-1h" onclick="ativarFiltro('oi<=-3-1h', this)">OI -3% (1h)</button>
+
+  <button id="btn-mapa" onclick="alternarMapa()">Mapa</button>
+  <button id="btn-favoritar">Favoritar</button>
+  <button onclick="resetFiltros()">Limpar filtros</button>
+  <button id="btn-notificacoes" onclick="toggleNotificacoes()">Ativar Notificações</button>
+  <button id="btn-radar-feed" class="icon-btn" title="Abrir/fechar feed de alertas">📡</button>
+
+  <span id="icone-sino" onclick="toggleSom()" style="cursor:pointer; font-size:20px;">🔔</span>
+  <button onclick="salvarPerfil('perfil1')">Salvar Perfil 1</button>
+  <button onclick="salvarPerfil('perfil2')">Salvar Perfil 2</button>
+
+  <select id="seletor-perfil" style="padding: 4px 4px; font-size: 14px;">
+    <option value="">Selecionar perfil</option>
+    <option value="perfil1">Perfil 1</option>
+    <option value="perfil2">Perfil 2</option>
+  </select>
+
+  <!-- Dropdown de alertas -->
+  <div id="container-alertas" style="position:relative;">
+    <div id="lista-alertas" style="
+       display:none;
+       position:absolute;
+       right:0;
+       top:25px;
+       background:#222;
+       color:#fff;
+       padding:10px;
+       border-radius:6px;
+       width:250px;
+       max-height:300px;
+       overflow-y:auto;
+       font-size:13px;
+       z-index:999;">
+      <strong>Últimos Alertas</strong>
+      <ul id="alertas-ul" style="margin:5px 0 0 0; padding:0; list-style:none;"></ul>
+    </div>
+  </div>
+
+</div> <!-- fechamento da top-bar -->
+
+    <div id="mini-mapa-container" style="margin-bottom:15px;"></div>
+  
+    <div class="tabela-wrapper">
+    <table class="cockpit">
+      <thead id="painel-head"></thead>
+      <tbody id="painel-body"></tbody>
+
+      <!-- === FEED LATERAL DE ALERTAS === <button id="btn-limpar-favoritos">Limpar Favoritos</button>-->
+    <div id="feed-panel" aria-hidden="true">
+    <div class="feed-header">
+    <div class="feed-title">📡 Feed de Eventos</div>
+    <div class="feed-actions">
+      <button id="btn-limpar-feed" class="mini">Limpar</button>
+      <button id="btn-fechar-feed" class="mini">Fechar</button>
+    </div>
+      </div>
+     <div id="feed-conteudo" class="feed-content">
+    <div style="color:#777;font-style:italic;">Nenhum alerta registrado</div>
+      </div>
+      </div>
+
+    </table>
+    </div>
+
+    <div id="heatmap-container" style="display:none; padding:10px;">
+    <div id="heat-grid-por-grupos"></div>
+    </div>
+
+    <!-- Modal de Liquidações  -->
+    <div id="modal-liquid" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:9999; align-items:center; justify-content:center;">
+    <div style="background:#111; padding:20px; max-height:80%; overflow-y:auto; border-radius:8px; width:600px; color:#fff; font-size:13px;">
+    <h3 id="modal-title">Liquidações</h3>
+    <table id="table-liquid" style="width:100%; margin-top:10px; border-collapse: collapse;">
+      <thead>
+        <tr>
+                <th>Preço</th><th>Qty (USD)</th><th>Acumulado</th><th>Hora</th>
+        </tr>
+      </thead>
+      <tbody id="body-liquid"></tbody>
+    </table>
+    <button id="btn-fechar-modal" style="margin-top:10px;">Fechar</button>
+     </div>
+      </div>
+
+
+      <div id="tooltip-symbol" class="tooltip" style="display:none; position:absolute; background:rgba(0,0,0,0.8); color:white; padding:6px; border-radius:6px; font-size:12px; pointer-events:none; z-index:9999;"></div>
+
+
+</body>
+
+  <script>
+    
+
+function animarAtualizacao(td, valor, isUp) {
+  td.textContent = valor.toFixed(2) + "%";
+  td.classList.add(isUp ? "flash-green" : "flash-red");
+  setTimeout(() => td.classList.remove("flash-green", "flash-red"), 600);
+}
+
+function atualizarComAnimacao(el, novoValor) {
+  if (el && el.textContent !== novoValor) {
+    el.textContent = novoValor;
+    el.classList.add("valor-atualizado");
+    setTimeout(() => el.classList.remove("valor-atualizado"), 500);
+  }
+}
+
+    
+    const API_BASE = window.location.hostname.includes("localhost")
+  ? "http://localhost:3000"
+  : "https://phantomcryptoradar.onrender.com";
+
+  const WS_BASE = API_BASE.replace(/^http/, "ws") + (API_BASE.includes("localhost") ? ":1" : "");
+  
+
+    const painelBody = document.getElementById("painel-body");
+    const painelHead = document.getElementById("painel-head");
+
+    function criarCabecalhoTabela() {
+    painelHead.innerHTML = `
+    <tr>
+      <th>★</th><th>#</th><th>Par</th><th>Preço</th><th>Alerta</th><th>FR</th><th>Closes</th>
+     
+           
+      <th colspan="5">Sentimento de mercado</th>
+      <th colspan="3">Variação OI </th>
+      <th colspan="7">RSI</th>
+      <th colspan="7">Variação Preço</th>
+      <th colspan="4">Volume $</th>
+      <th colspan="7">RSI Delta</th>
+      <th colspan="7">Candles</th>
+      <th>Eventos</th>
+      
+    
+    </tr>
+
+    <tr>
+      <th></th><th></th><th></th><th></th><th></th><th></th>
+      <!-- spark -->
+      <th>5m</th>
+      <!-- Sentimento de mercado (5 colunas) -->
+      <th>OI 5m (USD)</th><th>OI 5m</th><th>LSR 5m</th><th>LSAR 5m</th><th>LSPR 5m</th>
+      <!-- Variação OI -->
+      <th>5m</th><th>15m</th><th>1h</th>
+      <!-- RSI -->
+      <th>1m</th><th>5m</th><th>15m</th><th>30m</th><th>1h</th><th>4h</th><th>1d</th>
+       <!-- Variação Preço -->
+      <th>1m</th><th>5m</th><th>15m</th><th>30m</th><th>1h</th><th>4h</th><th>1d</th>
+      <!-- Volume $ -->
+      <th>5m</th><th>1h</th><th>4h</th><th>1d</th>
+      <!-- Exposição BTC -->
+      <th>1m</th><th>5m</th><th>15m</th><th>30m</th><th>1h</th><th>4h</th><th>1d</th>
+      <!-- Candles -->
+      <th>1m</th><th>5m</th><th>15m</th><th>30m</th><th>1h</th><th>4h</th><th>1d</th>
+      <!-- Eventos -->
+      <th></th>
+    </tr>
+  `;
+  
+}
+
+
+
+(function initFeedToggle(){
+  const btn = document.getElementById("btn-radar-feed");
+  const panel = document.getElementById("feed-panel");
+  if (!btn || !panel) return;
+
+  function openFeed() {
+    panel.classList.add("open");
+    document.body.classList.add("with-feed-open");
+    btn.classList.remove("has-new");
+    panel.setAttribute("aria-hidden", "false");
+  }
+  function closeFeed() {
+    panel.classList.remove("open");
+    document.body.classList.remove("with-feed-open");
+    panel.setAttribute("aria-hidden", "true");
+  }
+  function toggleFeed() {
+    if (panel.classList.contains("open")) closeFeed(); else openFeed();
+  }
+
+  btn.addEventListener("click", toggleFeed);
+  const btnClose = document.getElementById("btn-fechar-feed");
+  if (btnClose) btnClose.addEventListener("click", closeFeed);
+  const btnClear = document.getElementById("btn-limpar-feed");
+  if (btnClear) btnClear.addEventListener("click", limparFeed);
+
+  
+  window.__feedPanel = { openFeed, closeFeed, isOpen: () => panel.classList.contains("open") };
+})();
+
+
+let miniMapaDados = {};   
+let tsMiniCache = 0;
+
+ 
+
+  contadorAvisos = 0;
+  const sparkCache = {}; 
+  const SPARK_MAX = 10; 
+let topSymbolsMapa = [];  
+  
+   const delay = (ms) => new Promise(r => setTimeout(r, ms));
+
+function getQuadrante(score) {
+  if (score === 0 || score === null || score === undefined) return 'q0';
+  return score > 0 ? 'qBull' : 'qBear';
+}
+
+
+
+
+
+function atualizarMiniMapaCache(arr) {
+  miniMapaDados = {};
+  arr.forEach(d => {
+    miniMapaDados[d.symbol] = {
+      score: d.score,
+      long: d.long || 0,
+      short: d.short || 0,
+      cap: d.cap || false,
+      oiFlowScore: d.oiFlowScore || 0,
+      liqData5m: Number(d.liqData5m) || 0  
+    };
+  });
+  tsMiniCache = Date.now();
+}
+
+
+// Botões
+document.getElementById("btn-qbull").onclick = () =>
+  ativarFiltro(tr => tr.classList.contains("qBull"));
+
+document.getElementById("btn-qbear").onclick = () =>
+  ativarFiltro(tr => tr.classList.contains("qBear"));
+
+document.getElementById("btn-flow").onclick = () =>
+  ativarFiltro(tr => tr.classList.contains("flow-flag"));
+
+document.getElementById("btn-capit").onclick = () =>
+  ativarFiltro(tr => tr.classList.contains("cap-long-row") || tr.classList.contains("cap-short-row"));
+
+document.getElementById("btn-oipos-5m").onclick = () =>
+  ativarFiltro("oi>=3-5m");
+
+document.getElementById("btn-oipos-15m").onclick = () =>
+  ativarFiltro("oi>=3-15m");
+
+document.getElementById("btn-oipos-1h").onclick = () =>
+  ativarFiltro("oi>=3-1h");
+
+document.getElementById("btn-oineg-5m").onclick = () =>
+  ativarFiltro("oi<=-3-5m");
+
+document.getElementById("btn-oineg-15m").onclick = () =>
+  ativarFiltro("oi<=-3-15m");
+
+document.getElementById("btn-oineg-1h").onclick = () =>
+  ativarFiltro("oi<=-3-1h");
+
+
+
+let ultimaInicializacao = Date.now();
+const TEMPO_CARENCIA = 60_000; // 1 minuto
+
+alertasPreco = JSON.parse(localStorage.getItem("alertasPreco") || "{}");
+
+
+let feedEventos = JSON.parse(localStorage.getItem("feedEventos") || "[]");
+
+
+  function salvarAlertas() {
+    localStorage.setItem("alertasPreco", JSON.stringify(alertasPreco));
+  
+}
+
+
+
+function renderFeed() {
+  const el = document.getElementById("feed-conteudo");
+  if (!el) return;
+
+  const itens = (feedEventos || []).slice(-300).reverse(); 
+  if (itens.length === 0) {
+    el.innerHTML = `<div style="color:#777;font-style:italic;">Nenhum alerta registrado</div>`;
+    return;
+  }
+
+  el.innerHTML = itens.map(ev => `
+    <div class="feed-item">
+      <strong>[${new Date(ev.ts).toLocaleTimeString()}]</strong> ${ev.msg}
+    </div>
+  `).join("");
+}
+
+
+function limparFeed() {
+  feedEventos = [];
+  localStorage.setItem("feedEventos", "[]");
+  renderFeed();
+}
+
+
+// ============================
+// Toggle de notificações
+// ============================
+let notificacoesAtivas = false;
+
+function toggleNotificacoes() {
+  const btn = document.getElementById("btn-notificacoes");
+
+  if (!notificacoesAtivas) {
+  
+    if (Notification.permission === "granted") {
+      notificacoesAtivas = true;
+      btn.innerText = "Desativar Notificações";
+    } else if (Notification.permission !== "denied") {
+      Notification.requestPermission().then(permission => {
+        if (permission === "granted") {
+          notificacoesAtivas = true;
+          btn.innerText = "Desativar Notificações";
+        } else {
+          alert("Você precisa permitir as notificações para ativá-las.");
+        }
+      });
+    } else {
+      alert("Notificações bloqueadas no navegador. Libere nas configurações.");
+    }
+  } else {
+ 
+    notificacoesAtivas = false;
+    btn.innerText = "Ativar Notificações";
+  }
+}
+
+
+// ============================
+// Sino sonoro
+// ============================
+let sinoSonoroAtivo = false;
+
+function toggleSom() {
+  sinoSonoroAtivo = !sinoSonoroAtivo;
+  const sino = document.getElementById("icone-sino");
+  if (!sino) return;
+  sino.classList.toggle("som-ativo", sinoSonoroAtivo);
+}
+
+function tocarSino() {
+  if (!sinoSonoroAtivo) return;
+  try {
+    const audio = new Audio("beep.mp3");
+    audio.play().catch(() => {
+      console.warn("⚠️ Não foi possível tocar o som. Verifique se beep.mp3 existe.");
+    });
+  } catch (err) {
+    console.warn("Erro ao tocar som:", err);
+  }
+}
+
+// =======================
+// 📡 Radar Inteligente Único + Feed de Alertas
+// =======================
+const radarState = {
+  priceHistory: {},   
+  volumeHistory: {},  
+  tradesHistory: {}, 
+  oiHistory: {},      
+  lastNotificationAt: {} 
+};
+window.radarState = radarState;
+
+
+const ALERT_COOLDOWN_MS = 60_000;
+
+
+const ultimoOiAlert = {}; 
+
+
+const MIN_OI_ABS = 50_000;    
+const MIN_OI_PCT = 0.5;      
+
+
+
+
+function ensureNotificationPermission() {
+  if (Notification.permission === "default") Notification.requestPermission();
+}
+function dispararAlerta(titulo, mensagem, symbol) {
+  const agora = Date.now();
+  if (radarState.lastNotificationAt[symbol] && agora - radarState.lastNotificationAt[symbol] < ALERT_COOLDOWN_MS) return;
+  radarState.lastNotificationAt[symbol] = agora;
+
+ 
+  if (notificacoesAtivas && Notification.permission === "granted") {
+    new Notification(titulo, { body: mensagem });
+  }
+
+
+  notificar(`[${symbol}] ${mensagem}`, "radar", {
+    key: `radar:bundle:${symbol}`,
+    ttl: ALERT_COOLDOWN_MS,
+    browser: false 
+  });
+}
+
+
+
+
+function adicionarAlertaFeed(msg, tipo = "geral") {
+  const evento = { ts: Date.now(), msg, tipo };
+  feedEventos.unshift(evento); 
+
+
+  if (feedEventos.length > 300) feedEventos.pop();
+
+  
+  localStorage.setItem("feedEventos", JSON.stringify(feedEventos));
+
+  
+  renderFeed();
+
+ 
+  tocarSino();
+  const btn = document.getElementById("btn-radar-feed");
+  if (btn && (!window.__feedPanel || !window.__feedPanel.isOpen())) {
+    btn.classList.add("has-new");
+  }
+}
+
+// ==== De-dup (TTL) ====
+const __dedup = {
+  _seen: new Map(), 
+  hit(key, ttl = 60_000) {
+    const now = Date.now();
+    const last = this._seen.get(key) || 0;
+    if (now - last < ttl) return true;   
+    this._seen.set(key, now);
+    return false;
+  }
+};
+
+
+function notificar(msg, tipo = "geral", opts = {}) {
+  const { key = null, ttl = 60_000, browser = true } = opts;
+  if (key && __dedup.hit(key, ttl)) return; 
+
+  
+  adicionarAlerta(msg, tipo);
+
+ 
+  adicionarAlertaFeed(msg, tipo);
+
+ 
+  tocarSino();
+
+  
+  if (browser && notificacoesAtivas && Notification.permission === "granted") {
+    new Notification(msg);
+  }
+}
+
+
+async function registrarInputAlerta(symbol, valorDigitado) {
+  if (!valorDigitado) return;
+  const raw = String(valorDigitado).trim();
+
+  const precoAtualObj = await fetchJSONSafe(`/preco/${symbol}`, { preco: null });
+  const ultimoPreco = parseFloat(precoAtualObj?.preco);
+
+  const alerta = { entrada: raw, acima: null, abaixo: null };
+
+  if (raw.includes("%")) {
+    
+    const perc = parseFloat(raw.replace(",", "."));
+    if (isNaN(perc) || isNaN(ultimoPreco)) return;
+    if (raw.startsWith("<") || raw.startsWith("-")) {
+      alerta.abaixo = ultimoPreco * (1 - perc / 100);
+      alerta.entrada = `<${perc}%`;
+    } else {
+      alerta.acima = ultimoPreco * (1 + perc / 100);
+      alerta.entrada = `>${perc}%`;
+    }
+  } else {
+    
+    const normalizado = raw.replace(",", "."); 
+    const num = parseFloat(normalizado.replace(/[^\d\.\-]/g, ""));
+    if (isNaN(num)) return;
+
+    if (raw.startsWith("<") || num < 0) {
+      alerta.abaixo = Math.abs(num);
+      alerta.entrada = `<${Math.abs(num)}`;
+    } else {
+      alerta.acima = num;
+      alerta.entrada = `>${num}`;
+    }
+  }
+
+  alertasPreco[symbol] = alerta;
+  salvarAlertas();
+
+  notificar(`✅ Alerta criado para ${symbol} em ${alerta.entrada}`, "preco", {
+    key: `price:create:${symbol}:${alerta.entrada}`,
+    ttl: 5_000
+  });
+
+ 
+  const inp = document.querySelector(`.alerta-preco[data-symbol="${symbol}"]`);
+  if (inp) inp.value = "";
+}
+
+
+
+if (!window.__priceAlertsInterval) {
+  window.__priceAlertsInterval = setInterval(async () => {
+    if (!notificacoesAtivas) return;
+    if (Date.now() - ultimaInicializacao < TEMPO_CARENCIA) return;
+
+    for (const [symbol, alvo] of Object.entries(alertasPreco)) {
+      if (!alvo) continue;
+
+      const precoObj = await fetchJSONSafe(`/preco/${symbol}`, { preco: null });
+      const preco = parseFloat(precoObj?.preco);
+      if (isNaN(preco)) continue;
+
+      let disparou = false;
+      const acimaHit = (alvo.acima !== null) && (preco >= alvo.acima || epsilonAbs(preco, alvo.acima));
+      const abaixoHit = (alvo.abaixo !== null) && (preco <= alvo.abaixo || epsilonAbs(preco, alvo.abaixo));
+
+      if (acimaHit) {
+        const msg = `📈 ${symbol} ultrapassou ${alvo.entrada} (atual: ${preco.toFixed(6)})`;
+        notificar(msg, "preco", { key: `price:hit:${symbol}:${alvo.entrada}`, ttl: 60_000 });
+        disparou = true;
+      } else if (abaixoHit) {
+        const msg = `📉 ${symbol} caiu para ${alvo.entrada} (atual: ${preco.toFixed(6)})`;
+        notificar(msg, "preco", { key: `price:hit:${symbol}:${alvo.entrada}`, ttl: 60_000 });
+        disparou = true;
+      }
+
+      if (disparou) {
+        delete alertasPreco[symbol];
+        localStorage.setItem("alertasPreco", JSON.stringify(alertasPreco));
+      }
+    }
+  }, 20_000);
+}
+
+
+
+
+const ultimoFlowNotificado = {}; 
+const FLOW_COOLDOWN_MS = 60_000;
+
+
+// ============================
+// FILTROS Combinados
+// ============================
+
+
+let filtrosAtivos = new Set();
+
+function ativarFiltro(tipo, btn) {
+  
+  if (filtrosAtivos.has(tipo)) {
+    filtrosAtivos.delete(tipo);
+    btn.classList.remove("filtro-ativo");
+  } else {
+    filtrosAtivos.add(tipo);
+    btn.classList.add("filtro-ativo");
+  }
+
+  aplicarFiltrosCombinados();
+}
+
+function aplicarFiltrosCombinados() {
+  const linhas = painelBody.querySelectorAll("tr");
+
+  linhas.forEach(linha => {
+    const sym = linha.dataset.symbol;
+    let visivel = true;
+
+   
+    filtrosAtivos.forEach(f => {
+      if (f === "qbull" && !linha.classList.contains("qbull")) visivel = false;
+      if (f === "qbear" && !linha.classList.contains("qbear")) visivel = false;
+      if (f === "flow" && !linha.classList.contains("flow")) visivel = false;
+      if (f === "capitulation" && !linha.classList.contains("capitulation")) visivel = false;
+
+      if (f.startsWith("oi>=")) {
+        const [_, perc, tf] = f.match(/oi>=(\-?\d+)-(\w+)/) || [];
+        const val = parseFloat(linha.dataset[`oi${tf}`] || 0);
+        if (!(val >= parseFloat(perc))) visivel = false;
+      }
+
+      if (f.startsWith("oi<=")) {
+        const [_, perc, tf] = f.match(/oi<=(\-?\d+)-(\w+)/) || [];
+        const val = parseFloat(linha.dataset[`oi${tf}`] || 0);
+        if (!(val <= parseFloat(perc))) visivel = false;
+      }
+    });
+
+    linha.style.display = visivel ? "" : "none";
+  });
+
+ 
+  const criterio = document.getElementById("filtro-ordenacao").value;
+  if (criterio) aplicarOrdenacaoLista(criterio);
+}
+
+
+// ==============================
+// 🔍 Filtrar por OI %
+// ==============================
+async function filtrarPorOI(lista, cond, timeframe) {
+  const out = [];
+  for (let symbol of lista) {
+    const data = await fetchJSONSafe(`/oi/${symbol}`, {});
+    if (!data) continue;
+
+    let pct = 0;
+    if (timeframe === "5m") pct = data.var5m ?? 0;
+    else if (timeframe === "15m") pct = data.var15m ?? 0;
+    else if (timeframe === "1h") pct = data.var1h ?? 0;
+
+    if (cond === ">=3" && pct >= 3) out.push(symbol);
+    if (cond === "<=-3" && pct <= -3) out.push(symbol);
+  }
+  return out;
+}
+
+// ==============================
+// 🔽 Ordenar lista já filtrada
+// ==============================
+
+
+
+async function aplicarOrdenacaoLista(criterio) {
+  const linhas = Array.from(painelBody.querySelectorAll("tr"));
+  if (!linhas.length) return;
+
+ 
+  const valores = await Promise.all(linhas.map(async (linha) => {
+    const sym = linha.dataset.symbol;
+    let val = 0;
+
+    if (criterio === "oi-5m") {
+      const d = await fetchJSONSafe(`/oi/${sym}`, {});
+      val = d?.sumOpenInterest || 0;
+    }
+    else if (criterio === "oiusd") {
+      const d = await fetchJSONSafe(`/oi/${sym}`, {});
+      val = d?.oiUsd || 0;
+    }
+    else if (criterio.startsWith("oi-var")) {
+      const tf = criterio.split("-")[2]; 
+      const d = await fetchJSONSafe(`/oi/${sym}`, {});
+      val = d?.[`var${tf}`] || 0;
+    }
+    else if (criterio.startsWith("volume")) {
+      const tf = criterio.split("-")[1]; 
+      const d = await fetchJSONSafe(`/volume-usd/${sym}/${tf}`, { volume: 0 });
+      val = d?.volume || 0;
+    }
+    else if (criterio.startsWith("expbtc")) {
+      const tf = criterio.split("-")[1];
+      const r = await compararComBTC(sym, tf);
+      val = Math.abs(parseFloat(r?.value) || 0);
+    }
+    else if (criterio.startsWith("expeth")) {
+      const tf = criterio.split("-")[1];
+      const r = await compararComETH(sym, tf);
+      val = Math.abs(parseFloat(r?.value) || 0);
+    }
+
+    return { sym, linha, val };
+  }));
+
+  
+  valores.sort((a, b) => b.val - a.val);
+
+  
+  valores.forEach(v => painelBody.appendChild(v.linha));
+}
+
+
+function resetFiltros() {
+  filtrosAtivos.clear();
+  document.querySelectorAll("button.filtro-ativo").forEach(btn => btn.classList.remove("filtro-ativo"));
+
+  symbolsParaExibir = [...symbolsOriginais];
+
+  
+  painelBody.querySelectorAll("tr").forEach(tr => tr.style.display = "");
+
+  
+  const criterio = document.getElementById("filtro-ordenacao").value;
+  if (criterio) aplicarOrdenacaoLista(criterio);
+}
+
+// =======================
+// ✍️ Ajuste de input alerta
+// =======================
+document.querySelectorAll(".alerta-preco").forEach(input => {
+  const symbol = input.dataset.symbol;
+  if (alertasPreco[symbol]?.entrada) input.value = alertasPreco[symbol].entrada;
+
+  input.addEventListener("keydown", e => {
+    if (e.key === "Enter") {
+      registrarAlerta(symbol, input.value);
+      input.blur();
+      e.preventDefault();
+    }
+  });
+  input.addEventListener("blur", () => registrarAlerta(symbol, input.value));
+});
+
+
+
+  
+  function toggleFavorito(symbol, el) {
+    let favoritos = JSON.parse(localStorage.getItem("favoritos") || "[]");
+    if (favoritos.includes(symbol)) {
+      favoritos = favoritos.filter(s => s !== symbol);
+      el.classList.remove("active");
+    } else {
+      favoritos.push(symbol);
+      el.classList.add("active");
+    }
+    localStorage.setItem("favoritos", JSON.stringify(favoritos));
+  }
+
+  function salvarPerfil(nome) {
+    const favoritos = JSON.parse(localStorage.getItem("favoritos") || "[]");
+    localStorage.setItem(nome, JSON.stringify(favoritos));
+    alert(`Perfil ${nome} salvo com sucesso!`);
+  }
+
+  function carregarPerfil(nome) {
+    const perfil = JSON.parse(localStorage.getItem(nome) || "[]");
+    localStorage.setItem("favoritos", JSON.stringify(perfil));
+    
+    atualizarTabelaCockpit();    
+    alert(`Perfil ${nome} carregado com sucesso!`);
+  }
+
+  document.getElementById("btn-favoritar").addEventListener("click", async () => {
+  const favoritos = JSON.parse(localStorage.getItem("favoritos") || "[]");
+  if (favoritos.length === 0) {
+    alert("Nenhum favorito encontrado.");
+    return;
+  }
+  symbolsParaExibir = favoritos;
+  grupoAtual = 0;
+  painelBody.innerHTML = "";
+  
+  await atualizarTabelaCockpit();
+
+});
+
+ function fecharModal() {
+  document.getElementById("modal-liquid").style.display = "none";
+}
+
+
+document.getElementById("btn-fechar-modal").onclick = fecharModal;
+
+
+document.getElementById("modal-liquid").addEventListener("click", function(e) {
+  if (e.target.id === "modal-liquid") {
+    fecharModal();
+  }
+});
+
+async function abrirModalLiquido(symbol) {
+  const res = await fetch(`/liquidations/${symbol}`);
+  const data = await res.json();
+
+  document.getElementById("modal-title").innerText = `Liquidações LIVE – ${symbol}`;
+
+  const tbody = document.getElementById("body-liquid");
+  tbody.innerHTML = "";
+
+
+  tbody.innerHTML += `<tr><td colspan="5" style="background:#222; font-weight:bold; text-align:center;">Resumo em USD</td></tr>`;
+  tbody.innerHTML += `
+    <tr>
+      <td>Total Long liquidados</td><td colspan="4">${formatarNumeroUSD(data.long)}</td>
+    </tr>
+    <tr>
+      <td>Total Short liquidados</td><td colspan="4">${formatarNumeroUSD(data.short)}</td>
+    </tr>
+  `;
+
+  
+  if (data.hist && data.hist.length > 0) {
+    tbody.innerHTML += `<tr><td colspan="5" style="background:#222; font-weight:bold; text-align:center;">Histórico recente</td></tr>`;
+    tbody.innerHTML += `
+      <tr>
+        <th>Lado</th>
+        <th>Preço</th>
+        <th>Qtd</th>
+        <th>Notional (USD)</th>
+        <th>Horário</th>
+      </tr>
+    `;
+
+    data.hist.forEach(ev => {
+      const side = ev.side === "SELL" ? "Short" : ev.side === "BUY" ? "Long" : ev.side;
+      const cls = side === "Long" ? "up" : side === "Short" ? "down" : "";
+      const hora = new Date(ev.ts).toLocaleTimeString();
+
+      tbody.innerHTML += `
+        <tr class="${cls}">
+          <td>${side}</td>
+          <td>${ev.price}</td>
+          <td>${formatarNumero(ev.qty)}</td>
+          <td>${formatarNumeroUSD(ev.notional)}</td>
+          <td>${hora}</td>
+        </tr>
+      `;
+    });
+  } else {
+    tbody.innerHTML += `<tr><td colspan="5" style="text-align:center;color:#777;">Sem eventos recentes</td></tr>`;
+  }
+
+  document.getElementById("modal-liquid").style.display = "flex";
+}
+
+
+    function formatarHora() {
+    const agora = new Date();
+    const hh = String(agora.getHours()).padStart(2, "0");
+    const mm = String(agora.getMinutes()).padStart(2, "0");
+    return `${hh}:${mm}`;
+}
+
+
+const tooltip = document.getElementById("tooltip");
+async function mostrarTooltipSymbol(symbol, x, y) {
+  try {
+    const tooltip = document.getElementById("tooltip-symbol");
+    if (!tooltip) return;
+
+    const precoObj = await fetchJSONSafe(`/preco/${symbol}`, { preco: null });
+    const oiObj = await fetchJSONSafe(`/oi/${symbol}`, { sumOpenInterest: null });
+    const rsiObj = await fetchRSI(symbol, "1h");
+
+    let html = `<b>${symbol}</b><br>`;
+    html += `Preço: $${precoObj?.preco || "n/d"}<br>`;
+    html += `OI: ${oiObj?.sumOpenInterest ? formatarNumero(oiObj.sumOpenInterest) : "n/d"}<br>`;
+    html += `RSI(1h): ${rsiObj ? rsiObj.toFixed(1) : "n/d"}`;
+
+    tooltip.innerHTML = html;
+    tooltip.style.left = `${x + 15}px`;
+    tooltip.style.top = `${y - 20 + window.scrollY}px`;
+    tooltip.style.display = "block";
+  } catch (err) {
+    console.warn("Erro tooltip", err.message);
+  }
+}
+
+function esconderTooltipSymbol() {
+  const tooltip = document.getElementById("tooltip-symbol");
+  if (tooltip) tooltip.style.display = "none";
+}
+
+function getCandleColor(open, close, exp = 50, volRel = 1) {
+  
+  open = (open === null || open === undefined) ? null : Number(open);
+  close = (close === null || close === undefined) ? null : Number(close);
+  exp = (exp === null || exp === undefined) ? null : Number(exp);
+  volRel = (volRel === null || volRel === undefined) ? null : Number(volRel);
+
+  if (open === null || close === null) return null;
+  if (!Number.isFinite(open) || !Number.isFinite(close)) return null;
+
+ 
+  const missingExp = exp === null || !Number.isFinite(exp);
+  const missingVol = volRel === null || !Number.isFinite(volRel);
+
+  const isBull = close >= open;
+  if (missingExp || missingVol) {
+  return isBull ? "#00c59e" : "#ff5252"; // mantém coerência com spark padrão
+}
+
+ 
+  const expUpper = 55;
+  const expLower = 45;
+  const veryStrongBuy  = exp > expUpper + 10;
+  const strongBuy      = exp > expUpper;
+  const veryStrongSell = exp < expLower - 10;
+  const strongSell     = exp < expLower;
+  const isHighVol    = volRel >= 1.5;
+  const isExtremeVol = volRel > 2.5;
+
+  let col = "#a0a2ac";
+  if (isBull && veryStrongBuy && isExtremeVol) col = "#00FFCC";
+  else if (isBull && (veryStrongBuy || (strongBuy && isHighVol))) col = "#00c59e";
+  else if (isBull && strongBuy) col = "#019174";
+  else if (isBull) col = "#015c4a";
+  else if (!isBull && veryStrongSell && isExtremeVol) col = "#FF1493";
+  else if (!isBull && (veryStrongSell || (strongSell && isHighVol))) col = "#ff7300";
+  else if (!isBull && strongSell) col = "#ff2929";
+  else if (!isBull) col = "#ff5252";
+
+  const opacidade = Math.min(1, Math.max(0.35, volRel / 2));
+  if (col.startsWith("#")) {
+    const bigint = parseInt(col.slice(1), 16);
+    const r = (bigint >> 16) & 255;
+    const g = (bigint >> 8) & 255;
+    const b = bigint & 255;
+    return `rgba(${r},${g},${b},${opacidade})`;
+  }
+  return col;
+}
+
+
+function gerarSparkSVG(hist, symbol) {
+  const w = 64, h = 18, pad = 2;
+
+  
+  if (!Array.isArray(hist) || hist.length === 0) {
+    const fallback = (window.candlesHist && window.candlesHist[symbol]) || [];
+    hist = Array.isArray(fallback) && fallback.length ? fallback.slice(-30) : [];
+  }
+  if (!hist.length) return `<svg width="${w}" height="${h}"></svg>`;
+
+  
+  hist = hist.map(c => ({
+    open: Number(c.open) || Number(c.close) || 0,
+    close: Number(c.close) || Number(c.open) || 0,
+    exp: Number.isFinite(c.exp) ? c.exp : 50,
+    volRel: Number.isFinite(c.volRel) ? c.volRel : 1
+  }));
+
+  if (hist.length > 30) hist = hist.slice(-30);
+
+  
+  const closes = hist.map(c => c.close);
+  const min = Math.min(...closes);
+  const max = Math.max(...closes);
+  const span = (max - min) || 1;
+  const step = (w - 2 * pad) / Math.max(1, hist.length - 1);
+
+ 
+  let segments = "";
+  for (let i = 1; i < hist.length; i++) {
+    const a = hist[i - 1];
+    const b = hist[i];
+    const x1 = pad + (i - 1) * step;
+    const y1 = h - pad - ((a.close - min) / span) * (h - 2 * pad);
+    const x2 = pad + i * step;
+    const y2 = h - pad - ((b.close - min) / span) * (h - 2 * pad);
+
+    
+    const stroke = getCandleColor(a.open, a.close, a.exp, a.volRel) || "#888";
+    segments += `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}"
+                       x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}"
+                       stroke="${stroke}" stroke-width="1.6" stroke-linecap="round"/>`;
+  }
+
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg">${segments}</svg>`;
+}
+
+
+
+  function limparFavoritos() {
+  localStorage.setItem("favoritos", "[]");
+  
+ }
+
+  document.getElementById("seletor-perfil").addEventListener("change", e => {
+    if (e.target.value) carregarPerfil(e.target.value);
+  });
+
+  document.getElementById("busca-token").addEventListener("input", e => {
+    const termo = e.target.value.toUpperCase();
+    const linhas = painelBody.querySelectorAll("tr");
+    linhas.forEach(tr => {
+      const simbolo = tr.children[2]?.textContent || "";
+      tr.style.display = simbolo.includes(termo) ? "" : "none";
+    });
+  });
+
+ 
+  function formatarNumero(valor) {
+    
+  const val = Number(valor); 
+  if (isNaN(val)) return valor; 
+
+  const abs = Math.abs(valor);
+  let texto = "";
+  if (abs >= 1e9) texto = (abs / 1e9).toFixed(2) + 'B';
+  else if (abs >= 1e6) texto = (abs / 1e6).toFixed(2) + 'M';
+  else if (abs >= 1e3) texto = (abs / 1e3).toFixed(2) + 'K';
+  else texto = abs.toFixed(0);
+  return val < 0 ? "-" + texto : texto;}
+
+  function formatarNumeroUSD(valor) {
+    const abs = Math.abs(valor);
+    let texto = "";
+  if (abs >= 1e9) return '$' + (abs / 1e9).toFixed(1) + 'B';
+  else if (abs >= 1e6) return '$' + (abs / 1e6).toFixed(1) + 'M';
+   else if (abs >= 1e3) return '$' + (abs / 1e3).toFixed(1) + 'K';
+  else texto = '$' + abs.toFixed(0);
+   if (abs < 0) texto = '-' + '$'+ texto;
+  return texto;
+}
+
+
+async function fetchComFallback(urls, params = {}) {
+for (const url of urls) {
+try {
+const r = await fetch(url, params);
+if (r.ok) return await r.json();
+} catch {}
+}
+return null;
+}
+
+
+async function fetchKlines(symbol, interval, limit = 200) {
+  try {
+    const url = `${API_BASE}/klines/${symbol}/${interval}?limit=${limit}`;
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    return await resp.json();
+  } catch (err) {
+    console.warn(`⚠️ Falha ao buscar klines do backend:`, err.message);
+    return null;
+  }
+}
+
+
+async function fetchJSONSafe(url, fallback = null) {
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    return await resp.json();
+  } catch (err) {
+    console.warn(`⚠️ Falha ao buscar ${url}:`, err.message);
+    return fallback;
+  }
+}
+  
+const cache = {};
+const TEMPO_CACHE = 60 * 1000; 
+
+async function fetchComCache(url) {
+  const agora = Date.now();
+  if (cache[url] && agora - cache[url].timestamp < TEMPO_CACHE) {
+    return cache[url].dados;
+  }
+
+  try {
+    
+    if (!url.startsWith("${API_BASE}")) {
+      console.warn("❌ Bloqueado fetch direto na Binance:", url);
+      return null;
+    }
+
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const dados = await resp.json();
+    cache[url] = { dados, timestamp: agora };
+    return dados;
+  } catch (err) {
+    return null;
+  }
+}
+
+
+  const temposTrades = ["5m", "15m"];
+  const temposCandle = ["1h", "4h", "1d"];
+  const temposVariação = ["5m", "1d" ];
+  const temposRSI = ["5m", "30m","1h", "4h", "1d"];
+  const temposcomparacao = ["5m", "1d"];
+  const temposvolume = ["5m","1d"];
+
+async function atualizarCartoesBTC() {
+  const symbol = "BTCUSDT";
+
+  try {
+    
+    const scoreData = await fetch(`${API_BASE}/score-lote?symbols=${symbol}`)
+      .then(r => r.json())
+      .then(arr => arr?.[0] || null)
+      .catch(() => null);
+    if (!scoreData) return;
+
+    // --- Funding Rate ---
+    const fr = scoreData?.funding?.fundingRate || 0;
+    atualizarComAnimacao(document.getElementById("btc-fr"), `${(fr * 100).toFixed(4)}%`);
+    document.getElementById("btc-fr").className = fr >= 0 ? "up" : "down";
+
+    // --- Preço ---
+    const price = scoreData?.preco ?? 0;
+    atualizarComAnimacao(document.getElementById("btc-price"), `$${price}`);
+
+    // --- Variações ---
+    const formatarVar = (v) => {
+      if (v === null || v === undefined || typeof v.value !== "number") {
+        return `<span>n/d</span>`;
+      }
+      const cls = v.value > 0 ? "up" : v.value < 0 ? "down" : "";
+      return `<span class="${cls}">${v.value.toFixed(2)}%</span>`;
+    };
+
+    document.getElementById("btc-change").innerHTML =
+      `1h: ${formatarVar(scoreData?.variacao?.variacao1h)} | ` +
+      `4h: ${formatarVar(scoreData?.variacao?.variacao4h)} | ` +
+      `1d: ${formatarVar(scoreData?.variacao?.variacao1d)} | ` +
+      `1w: ${formatarVar(scoreData?.variacao?.variacao1w)} | ` ; 
+
+    // --- RSI ---
+    const rsi = scoreData?.rsi || {};
+    const rsiList = [rsi.rsi1m, rsi.rsi5m, rsi.rsi15m, rsi.rsi30m, rsi.rsi1h, rsi.rsi4h, rsi.rsi1d];
+    const rsiCentral = rsi.rsi5m ?? null;
+
+    atualizarComAnimacao(
+      document.getElementById("btc-rsi-central"),
+      rsiCentral !== null ? rsiCentral.toFixed(2) : "n/d"
+    );
+    document.getElementById("btc-rsi-central").className =
+      rsiCentral > 70 ? "up" : rsiCentral < 30 ? "down" : "";
+
+    document.getElementById("btc-rsi-valores").innerHTML = rsiList.map(v => {
+      if (v === null || v === undefined) return `<span>n/d</span>`;
+      const cls = v > 70 ? "up" : v < 30 ? "down" : "";
+      return `<span class="${cls}">${v.toFixed(0)}</span>`;
+    }).join(" ");
+
+    // --- Fechamento BTC 5m (Volume + últimos 10 candles) ---
+    const candles = await fetch(`${API_BASE}/klines/${symbol}/5m?limit=10&market=futures`)
+      .then(r => r.json())
+      .catch(() => []);
+
+    if (candles.length) {
+      const ultimo = candles[candles.length - 1];
+      const vol = parseFloat(ultimo[7]); // volume USDT
+      atualizarComAnimacao(document.getElementById("btc-trades"), formatarNumeroUSD(vol));
+    }
+
+    const bars = candles.slice(-10).map((c, i, arr) => {
+      const close = parseFloat(c[4]);
+      const prevClose = i > 0 ? parseFloat(arr[i - 1][4]) : close;
+      const cls = close >= prevClose ? "up" : "down";
+      return `<div class="bar ${cls}"></div>`;
+    }).join("");
+    document.getElementById("spark-btc").innerHTML = bars;
+
+    // --- Open Interest ---
+    const oi = scoreData?.oiData?.sumOpenInterest || 0;
+    const oiUsd = scoreData?.oiData?.oiUsd || 0;
+    const oiHist = scoreData?.oiData?.hist || Array(10).fill(oi);
+
+    atualizarComAnimacao(document.getElementById("btc-oi"),
+      `${formatarNumero(oi)} | ${formatarNumeroUSD(oiUsd)}`);
+    document.getElementById("btc-oi").className =
+      oiHist[oiHist.length - 1] >= oiHist[oiHist.length - 2] ? "up" : "down";
+
+    document.getElementById("btc-bars-oi").innerHTML = oiHist.map((v, i, a) =>
+      `<div class="bar ${i === 0 || v >= a[i - 1] ? "up" : "down"}"></div>`).join("");
+
+    // --- LSR ---
+    const lsr = scoreData?.lsrData?.longShortRatio || 0;
+    const lsrHist = scoreData?.lsrData?.hist || Array(10).fill(lsr);
+
+    atualizarComAnimacao(document.getElementById("btc-lsr"), lsr.toFixed(2));
+    document.getElementById("btc-lsr").className =
+      lsrHist[lsrHist.length - 1] >= lsrHist[lsrHist.length - 2] ? "up" : "down";
+
+    document.getElementById("btc-bars-lsr").innerHTML = lsrHist.map((v, i, a) =>
+      `<div class="bar ${i === 0 || v >= a[i - 1] ? "up" : "down"}"></div>`).join("");
+
+  } catch (err) {
+    console.warn("Erro ao atualizar cartões BTC:", err.message);
+  }
+}
+
+function formatarNumero(n) {
+if (!n) return "0";
+return Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 2 }).format(n);
+}
+
+function formatarNumeroUSD(n) {
+if (!n) return "$0";
+return "$" + Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 2 }).format(n);
+}
+
+
+//FUNÇÕES GLOBAIS
+const ultimoPrecoWS = new Map(); 
+const historicoPrecos = {}; 
+
+const candlesHist = {}; 
+const oiHistory = {};      
+const volumeHistory = {};  
+const rsiHistory = {};     
+const tradesHistory = {};  
+
+window.sparkCache = window.sparkCache || {};
+window.candlesCache = window.candlesCache || {};
+window.miniMapaDados = window.miniMapaDados || {}; 
+const candlesCache = window.candlesCache || {};
+
+// =============================
+// 🌐 WebSocket com o servidor (Render)
+// =============================
+let wsServer = null;
+let wsConectado = false;
+let retryCount = 0;
+
+function conectarWSServidor() {
+  const url = location.hostname.includes("localhost")
+    ? "ws://localhost:3001"
+    : "wss://phantomcryptoradar.onrender.com:3001";
+
+  wsServer = new WebSocket(url);
+
+  wsServer.onopen = () => {
+    wsConectado = true;
+    retryCount = 0;
+    console.log("✅ Conectado ao WebSocket do servidor!");
+
+    if (Array.isArray(symbolsParaExibir) && symbolsParaExibir.length) {
+      setTimeout(() => {
+        if (wsServer.readyState === WebSocket.OPEN) {
+          wsServer.send(JSON.stringify({ action: "subscribe", symbols: symbolsParaExibir }));
+          console.log(`🛰️ Inscrição confirmada: ${symbolsParaExibir.length} pares`);
+        }
+      }, 800);
+    }
+  };
+
+  // =====================================================
+  // 🧠 RECEBIMENTO DAS MENSAGENS WEBSOCKET
+  // =====================================================
+  wsServer.onmessage = (event) => {
+    try {
+      let msg = event.data;
+
+      if (typeof msg === "string") {
+        try {
+          msg = JSON.parse(msg);
+        } catch (e) {
+          console.warn("❌ WS payload inválido:", msg);
+          return;
+        }
+      }
+
+      if (msg?.data && msg.data.symbol && !msg.symbol) {
+        msg = { ...msg.data, type: msg.type || msg.data.type };
+      }
+
+      
+      if (msg.type === "pong") {
+        wsServer.ultimoPong = Date.now();
+        return;
+      }
+
+      // =============================
+      // 📈 Ticker (preços em tempo real)
+      // =============================
+      if (msg.type === "ticker" && msg.symbol && msg.price) {
+        const symbol = normalizarSymbol(msg.symbol);
+        const preco = Number(msg.price);
+        if (!Number.isFinite(preco) || preco <= 0) return;
+
+        ultimoPrecoWS.set(symbol, { preco, ts: Date.now() });
+        historicoPrecos[symbol] = historicoPrecos[symbol] || [];
+        historicoPrecos[symbol].push({ ts: Date.now(), preco });
+        if (historicoPrecos[symbol].length > 120) historicoPrecos[symbol].shift();
+
+        const el = document.getElementById(`preco-${symbol}`);
+        if (el) {
+          const precoFormatado =
+            preco < 0.01 ? preco.toFixed(8) :
+            preco < 10   ? preco.toFixed(5) :
+                           preco.toFixed(2);
+          atualizarComAnimacao(el, `$${precoFormatado}`);
+          el.dataset.preco = preco;
+        }
+
+        if (symbol === "BTCUSDT") {
+          const elBtc = document.getElementById("btc-price");
+          if (elBtc) atualizarComAnimacao(elBtc, `$${preco.toFixed(2)}`);
+        }
+
+        return;
+      }
+
+      // =============================
+      // 🕯️ Candle + Histórico local (sparks)
+      // =============================
+      if (msg.type === "candle" && msg.symbol && msg.tf) {
+        const { symbol, tf, open, close, vol, ts, exp, volRel } = msg;
+
+        if (!candlesCache[symbol]) candlesCache[symbol] = {};
+        if (!window.candlesHist) window.candlesHist = {};
+        if (!window.candlesHist[symbol]) window.candlesHist[symbol] = [];
+
+     
+        candlesCache[symbol][tf] = {
+          open: Number(open),
+          close: Number(close),
+          vol: Number(vol),
+          exp: Number.isFinite(Number(exp)) ? Number(exp) : 50,
+          volRel: Number.isFinite(Number(volRel)) ? Number(volRel) : 1,
+          ts: ts || Date.now()
+        };
+
+       
+        if (tf === "5m") {
+          const hist = window.candlesHist[symbol];
+          const ultimo = hist[hist.length - 1];
+          const novo = {
+            open: Number(open),
+            close: Number(close),
+            exp: Number.isFinite(Number(exp)) ? Number(exp) : 50,
+            volRel: Number.isFinite(Number(volRel)) ? Number(volRel) : 1,
+            ts: ts || Date.now()
+          };
+
+          
+          if (!ultimo || Math.abs(novo.ts - ultimo.ts) > 240000) {
+            hist.push(novo);
+            if (hist.length > 30) hist.splice(0, hist.length - 30);
+          }
+
+         
+          const linha = document.getElementById(`linha-${symbol}`);
+          if (linha) {
+            const sparkCell = linha.querySelector(".col-spark");
+            if (sparkCell && typeof gerarSparkSVG === "function") {
+              const svg = gerarSparkSVG(hist, symbol);
+              if (svg && svg.trim() !== "") sparkCell.innerHTML = svg;
+            }
+          }
+        }
+
+        
+        const cell = document.getElementById(`candle-${tf}-${symbol}`);
+        if (cell) {
+          const c = candlesCache[symbol][tf];
+          const color = getCandleColor(c.open, c.close, c.exp, c.volRel);
+          cell.innerHTML = `
+            <svg width="20" height="20">
+              <rect x="2" y="2" width="16" height="16" rx="3" ry="3"
+                    fill="${color}" stroke="#111" stroke-width="1"/>
+            </svg>`;
+        }
+
+        return;
+      }
+
+      // =======================================================
+      // 📦 Histórico inicial (candle_hist → preenchimento inicial)
+      // =======================================================
+      if (msg.type === "candle_hist") {
+        const { symbol, tf, candles } = msg;
+        if (tf !== "5m" || !Array.isArray(candles)) return;
+
+        if (!window.candlesHist) window.candlesHist = {};
+        window.candlesHist[symbol] = candles
+          .map(c => ({
+            open: Number(c.open),
+            close: Number(c.close),
+            exp: Number(c.exp),
+            volRel: Number(c.volRel)
+          }))
+          .slice(-30);
+
+        
+        const linha = document.getElementById(`linha-${symbol}`);
+        if (linha) {
+          const sparkCell = linha.querySelector(".col-spark");
+          if (sparkCell && typeof gerarSparkSVG === "function") {
+            const sparkSvg = gerarSparkSVG(window.candlesHist[symbol], {}, symbol);
+            sparkCell.innerHTML = sparkSvg;
+          }
+        }
+
+        return;
+      }
+
+      console.log("ℹ️ WS ignorado:", msg);
+
+    } catch (e) {
+      console.warn("⚠️ Erro parse msg WS servidor:", e, event.data);
+    }
+  };
+
+  // =====================================================
+  // 🔌 RECONEXÃO AUTOMÁTICA
+  // =====================================================
+  wsServer.onclose = () => {
+    wsConectado = false;
+    console.warn("⚠️ Conexão WS servidor perdida. Tentando reconectar...");
+    setTimeout(() => {
+      retryCount++;
+      conectarWSServidor();
+    }, Math.min(10000, 2000 * retryCount));
+  };
+
+  wsServer.onerror = (err) => {
+    console.warn("❌ Erro WS servidor:", err.message || err);
+    wsServer.close();
+  };
+}
+
+
+
+setInterval(() => {
+  if (!wsConectado && (!wsServer || wsServer.readyState >= 2)) {
+    conectarWSServidor();
+  }
+}, 15000);
+
+
+setInterval(() => {
+  const ativos = Object.keys(candlesCache || {}).length;
+  const comExp = Object.values(candlesCache)
+    .flatMap(o => Object.values(o))
+    .filter(c => c && c.exp !== 50).length;
+  console.log(`🧩 Diagnóstico Candles: ${ativos} ativos no cache, ${comExp} com exp real.`);
+}, 120_000);
+  
+
+function normalizarSymbol(s) {
+  return String(s || "").trim().toUpperCase();
+}
+
+
+window.candlesHist = window.candlesHist || {}; 
+
+
+
+function encontrarReferenciaMaisProxima(symbol, minutos, toleranciaSegundos = 20) {
+  const arr = historicoPrecos[symbol];
+  if (!Array.isArray(arr) || arr.length === 0) return null;
+  const agora = Date.now();
+  const alvoTs = agora - minutos * 60 * 1000;
+  let best = null;
+  let bestDiff = Infinity;
+  for (const h of arr) {
+    const diff = Math.abs(h.ts - alvoTs);
+    if (diff < bestDiff) {
+      bestDiff = diff;
+      best = h;
+    }
+  }
+  return best && bestDiff <= (toleranciaSegundos * 1000) ? best : null;
+}
+
+// =============================
+// 📡 WebSocket de preços via servidor
+// =============================
+let ultimaInscricao = 0;
+function iniciarWebSocketTicker() {
+  if (!Array.isArray(symbolsParaExibir) || symbolsParaExibir.length === 0) return;
+
+
+  const agora = Date.now();
+  if (agora - ultimaInscricao < 30_000) return;
+  ultimaInscricao = agora;
+
+  if (wsConectado && wsServer?.readyState === WebSocket.OPEN) {
+  
+    const lotes = [];
+    for (let i = 0; i < symbolsParaExibir.length; i += 100)
+      lotes.push(symbolsParaExibir.slice(i, i + 100));
+
+    lotes.forEach((lote, idx) => {
+      setTimeout(() => {
+        wsServer.send(JSON.stringify({ action: "subscribe", symbols: lote }));
+        console.log(`🛰️ [Ticker] Lote ${idx + 1}/${lotes.length} enviado (${lote.length} pares)`);
+      }, idx * 750);
+    });
+  } else {
+    console.warn("⚠️ WS servidor ainda não conectado. Reagendando inscrição...");
+    setTimeout(iniciarWebSocketTicker, 2000);
+  }
+}
+
+
+function monitorarWsTicker() {
+  if (!wsServer) return;
+  wsServer.onclose = () => {
+    console.warn("🔌 WS desconectado. Tentando reconectar...");
+    setTimeout(conectarWSServidor, 5000);
+  };  
+    }
+
+// ============================================================
+// ⏱️ Atualização contínua de preços e variações (a cada 1s)
+// ============================================================
+setInterval(() => {
+  if (!ultimoPrecoWS || ultimoPrecoWS.size === 0) return;
+
+  const agora = Date.now();
+  for (const [symbol, data] of ultimoPrecoWS.entries()) {
+   
+    if (!data || !data.preco || agora - (data.ts || 0) > 10_000) continue;
+    atualizarPrecoVariacao(symbol);
+  }
+}, 1000);
+
+function calcularVariacaoIncremental(symbol, minutos, precoAtual) {
+  const ref = encontrarReferenciaMaisProxima(symbol, minutos, 25); // tolerância 25s
+  if (!ref || !Number.isFinite(ref.preco) || !Number.isFinite(precoAtual) || precoAtual === 0) return null;
+  return ((precoAtual - ref.preco) / ref.preco) * 100;
+}
+
+function atualizarPrecoVariacao(symbol) {
+  const row = document.getElementById(`row-${symbol}`);
+  if (!row) return;
+
+ 
+  const precoEl = row.querySelector(".col-preco");
+  let precoNum = ultimoPrecoWS.get(symbol)?.preco ?? 0;
+
+ 
+  if (!historicoPrecos[symbol]) historicoPrecos[symbol] = [];
+  historicoPrecos[symbol].push({ preco: precoNum, ts: Date.now() });
+  if (historicoPrecos[symbol].length > 60)
+    historicoPrecos[symbol].shift();
+
+  if (Number.isFinite(precoNum) && precoNum > 0 && precoEl) {
+    const antigoPreco = parseFloat(precoEl.dataset.preco) || 0;
+    let precoDisplay = precoNum < 0.01 ? precoNum.toFixed(8) 
+                    : precoNum < 10 ? precoNum.toFixed(5)
+                    : precoNum.toFixed(2);
+
+    atualizarComAnimacao(precoEl, `$${precoDisplay}`);
+    precoEl.dataset.preco = precoNum;
+
+    if (precoNum > antigoPreco) flashElemento(precoEl, "flash-green");
+    else if (precoNum < antigoPreco) flashElemento(precoEl, "flash-red");
+  }
+
+  
+  const var1mEl = row.querySelector(".col-var-1m");
+  const variacao1m = calcularVariacaoIncremental(symbol, 1, precoNum);
+  if (var1mEl) {
+    if (variacao1m === null || isNaN(variacao1m)) {
+      var1mEl.textContent = "n/d";
+      var1mEl.className = "col-var-1m";
+    } else {
+      const antigoValor = parseFloat(var1mEl.dataset.valor) || 0;
+      var1mEl.textContent = variacao1m.toFixed(2) + "%";
+      var1mEl.dataset.valor = variacao1m;
+      var1mEl.className = `col-var-1m ${variacao1m > 0 ? "up" : variacao1m < 0 ? "down" : ""}`;
+
+      if (variacao1m > antigoValor) flashElemento(var1mEl, "flash-green");
+      else if (variacao1m < antigoValor) flashElemento(var1mEl, "flash-red");
+    }
+  }
+}
+
+
+function flashElemento(el, classe) {
+  el.classList.add(classe);
+  setTimeout(() => el.classList.remove(classe), 600); 
+}
+
+
+function iniciarWebSocketCandles(symbols) {
+  if (!Array.isArray(symbols) || !symbols.length) return;
+
+ 
+  if (wsConectado && wsServer?.readyState === WebSocket.OPEN) {
+    wsServer.send(JSON.stringify({ action: "subscribe", symbols }));
+    console.log("🕯️ Solicitada inscrição de candles para", symbols.length, "pares");
+  } else {
+    setTimeout(() => iniciarWebSocketCandles(symbols), 5000);
+  }
+}
+
+// =============================
+// 🚀 Inicializar candles
+// =============================
+async function inicializarCandles(symbols) {
+  const tfsInit = ["1m","5m","15m","30m","1h"];
+  for (const s of symbols) {
+    candlesCache[s] = candlesCache[s] || {};
+    for (const tf of tfsInit) {
+      try {
+        const kl = await fetchKlines(s, tf, 3); 
+        if (!kl || !kl.length) continue;
+        const last = kl[kl.length - 1];
+        const open = parseFloat(last[1]);
+        const close = parseFloat(last[4]);
+        const vol = parseFloat(last[7]);
+        if (!Number.isFinite(open) || !Number.isFinite(close)) continue;
+
+    
+        candlesCache[s][tf] = {
+          open,
+          close,
+          vol,
+          exp: 50,        
+          volRel: 1,      
+          ts: Date.now()
+        };
+      } catch(e) {
+        console.warn(`❌ Falha candle init ${s} ${tf}:`, e);
+      }
+    }
+  }
+  console.log("✅ Inicialização de candles completa:", Object.keys(candlesCache).length, "pares.");
+  console.log("✅ Candle cache inicializado:", Object.keys(candlesCache).length, "ativos.");
+}
+   function gerarTDCompacto(valor, hist, isOI = false) {
+  if (!valor || isNaN(valor)) return `<td>n/d</td>`;
+
+  const atual = hist?.at(-1) ?? valor;
+  const anterior = hist?.at(-2) ?? valor;
+  let dir = "";
+  let cls = "";
+
+  if (atual > anterior) {
+    dir = "↑";
+    cls = "up";
+  } else if (atual < anterior) {
+    dir = "↓";
+    cls = "down";
+  }
+
+  
+  if (isOI) {
+    const oiFormatado = valor >= 1e9
+      ? (valor / 1e9).toFixed(2) + "B"
+      : (valor / 1e6).toFixed(2) + "M";
+    return `<td class="${cls}">${oiFormatado} ${dir}</td>`;
+  }
+
+  
+  return `<td class="${cls}">${valor.toFixed(2)} ${dir}</td>`;
+  }
+
+  
+setInterval(() => {
+  const agora = Date.now();
+  for (const sym of Object.keys(candlesCache || {})) {
+    const frames = candlesCache[sym];
+    for (const tf in frames) {
+      const candle = frames[tf];
+      if (!candle || !candle.ts) continue;
+
+    
+      const expirado = agora - candle.ts > 180_000;
+      const aindaNeutro = candle.exp === 50 && candle.volRel === 1;
+      if (expirado && aindaNeutro) {
+        const cell = document.querySelector(`#row-${sym} .col-candle-${tf}`);
+       
+        if (cell) cell.innerHTML = "";
+        delete frames[tf]; 
+      }
+    }
+  }
+}, 60_000);
+
+ async function buscarLinha(symbol, index, scoreData) {
+  try {
+
+  
+
+    function flashSeMudou(el, valor){
+      if(!el) return;
+      el.classList.remove("flash-green","flash-red");
+      if(valor>0) el.classList.add("flash-green");
+      else if(valor<0) el.classList.add("flash-red");
+      setTimeout(()=>{ el.classList.remove("flash-green","flash-red"); },600);
+    }   
+
+    if(!scoreData || scoreData.error) return;
+    const symbolKey = String(symbol).toUpperCase();
+    const rowId = `row-${symbolKey}`;
+    let row = document.getElementById(rowId);
+
+    if(!row){
+      row = document.createElement("tr");
+      row.id = rowId;
+      row.dataset.symbol = symbolKey;
+      row.className = (index%2===0 ? "zebra-even" : "zebra-odd");
+      row.innerHTML = `
+        <td><span class="fav-star" onclick="toggleFavorito('${symbol}', this)">★</span></td>
+        <td class="col-index"></td>
+        <td class="col-symbol"></td>
+        <td class="col-preco"></td>
+        <td><input type="text" class="alerta-preco" data-symbol="${symbol}" 
+          onkeydown="if(event.key==='Enter'){ registrarInputAlerta('${symbol}', this.value); this.value=''; }"></td>
+        <td class="col-funding"></td>
+        <td class="col-spark"></td>
+        <td class="col-oi-compact"></td>
+        <td class="col-oi-contratos"></td>
+        <td class="col-lsr"></td>
+        <td class="col-lsar"></td>
+        <td class="col-lspr"></td>
+        <td class="col-oivar-5m"></td>
+        <td class="col-oivar-15m"></td>
+        <td class="col-oivar-1h"></td>
+        <td class="col-rsi-1m"></td>
+        <td class="col-rsi-5m"></td>
+        <td class="col-rsi-15m"></td>
+        <td class="col-rsi-30m"></td>
+        <td class="col-rsi-1h"></td>
+        <td class="col-rsi-4h"></td>
+        <td class="col-rsi-1d"></td>
+        <td class="col-var-1m"></td>
+        <td class="col-var-5m"></td>
+        <td class="col-var-15m"></td>
+        <td class="col-var-30m"></td>
+        <td class="col-var-1h"></td>
+        <td class="col-var-4h"></td>
+        <td class="col-var-1d"></td>
+        <td class="col-vol-5m"></td>
+        <td class="col-vol-1h"></td>
+        <td class="col-vol-4h"></td>
+        <td class="col-vol-1d"></td>
+        <td class="col-exp-1m"></td>
+        <td class="col-exp-5m"></td>
+        <td class="col-exp-15m"></td>
+        <td class="col-exp-30m"></td>
+        <td class="col-exp-1h"></td>
+        <td class="col-exp-4h"></td>
+        <td class="col-exp-1d"></td>
+        <td class="col-candle-1m"></td>
+        <td class="col-candle-5m"></td>
+        <td class="col-candle-15m"></td>
+        <td class="col-candle-30m"></td>
+        <td class="col-candle-1h"></td>
+        <td class="col-candle-4h"></td>
+        <td class="col-candle-1d"></td>
+        <td class="col-eventos obs-cell"></td>
+      `;
+      painelBody.appendChild(row);
+    }
+
+ 
+    const cells = {};
+    row.querySelectorAll("td, input").forEach(td=>{
+      td.classList.forEach(cls=>{
+        if(cls.startsWith("col-")) cells[cls]=td;
+      });
+    });
+
+    const isFav = (JSON.parse(localStorage.getItem("favoritos")||"[]")).includes(symbolKey);
+    const favStar = row.querySelector(".fav-star");
+    if(favStar) favStar.classList.toggle("active", isFav);
+
+   
+    if(cells["col-index"]) cells["col-index"].textContent = index+1;
+
+    
+    if(cells["col-symbol"]){ 
+      cells["col-symbol"].textContent = symbolKey;
+      cells["col-symbol"].style.cursor = "pointer";
+      cells["col-symbol"].onclick = ()=>abrirModalLiquido(symbolKey);
+    }
+
+   
+    const MAX_DELAY = 30_000;
+    let precoNum = Number(scoreData.preco ?? NaN);
+
+    
+    if (!Number.isFinite(precoNum) || precoNum <= 0) {
+      const last = ultimoPrecoWS.get(symbolKey);
+      if (last && Number.isFinite(last.preco)) {
+        precoNum = Number(last.preco);
+      } else {
+        
+        const cur = parseFloat(cells["col-preco"]?.dataset?.preco || NaN);
+        if (Number.isFinite(cur)) precoNum = cur;
+      }
+    }
+
+    
+    if (!Number.isFinite(precoNum) || precoNum <= 0) {
+     
+    } else {
+      if (cells["col-preco"]) {
+        let precoDisplay = precoNum < 0.01 ? precoNum.toFixed(8)
+                          : precoNum < 10 ? precoNum.toFixed(5)
+                          : precoNum.toFixed(2);
+        atualizarComAnimacao(cells["col-preco"], `$${precoDisplay}`);
+        cells["col-preco"].dataset.preco = precoNum;
+      }
+    }
+
+   
+    const fr = scoreData.funding?.fundingRate??0;
+    if(cells["col-funding"]){
+      cells["col-funding"].textContent=(fr*100).toFixed(4)+"%";
+      cells["col-funding"].className="col-funding "+(fr>0?"funding-up":fr<0?"funding-down":"");
+    }
+
+    
+   
+    if (cells["col-spark"]) {
+      let histCandles = [];
+
+    
+      if (window.candlesHist?.[symbol]) {
+        histCandles = window.candlesHist[symbol];
+      }
+      
+      else if (Array.isArray(scoreData.spark)) {
+        histCandles = scoreData.spark;
+      }
+
+      
+      if (histCandles.length >= 2 && typeof gerarSparkSVG === "function") {
+        const svg = gerarSparkSVG(histCandles, candlesCache[symbol] || {}, symbol);
+        cells["col-spark"].innerHTML = svg;
+      } else {
+       
+        cells["col-spark"].innerHTML = `<svg width="40" height="20"><rect width="40" height="20" fill="#222" rx="4"/></svg>`;
+      }
+    }
+
+
+    
+    [
+      ["col-oi-compact", scoreData.oiData?.oiUsd, scoreData.oiData?.hist, true],
+      ["col-lsr", scoreData.lsrData?.longShortRatio, scoreData.lsrData?.hist],
+      ["col-lsar", scoreData.lsarData?.ratio, scoreData.lsarData?.hist],
+      ["col-lspr", scoreData.lsprData?.ratio, scoreData.lsprData?.hist]
+    ].forEach(([cls,val,hist,isOI])=>{
+      const el=cells[cls]; if(!el) return;
+      const html = gerarTDCompacto(val,hist,isOI).replace("<td","<div").replace("</td>","</div>");
+      if(el.innerHTML!==html){ el.innerHTML=html; flashSeMudou(el,val); }
+    });
+
+    ["5m","15m","1h"].forEach(tf=>{
+      const el=cells[`col-oivar-${tf}`]; if(!el) return;
+      const valor=scoreData.oiData?.[`var${tf}`]??0;
+      const txt=isNaN(valor)?"n/d":valor.toFixed(2)+"%";
+      const cls=isNaN(valor)?`col-oi-var-${tf}`:`col-oi-var-${tf} ${valor>0?"up":valor<0?"down":""}`;
+      if(el.textContent!==txt){ el.textContent=txt; el.className=cls; flashSeMudou(el,valor); }
+    });
+
+   
+    if(cells["col-oi-contratos"]){
+      const val=scoreData.oiData?.sumOpenInterest??0;
+      const formatted=formatarNumero(val);
+      if(cells["col-oi-contratos"].textContent!==formatted){ 
+        cells["col-oi-contratos"].textContent=formatted; flashSeMudou(cells["col-oi-contratos"],val);
+      }
+    }
+
+   
+    const rsiVals=[
+      scoreData.rsi?.rsi1m, scoreData.rsi?.rsi5m, scoreData.rsi?.rsi15m,
+      scoreData.rsi?.rsi30m, scoreData.rsi?.rsi1h, scoreData.rsi?.rsi4h, scoreData.rsi?.rsi1d
+    ];
+    ["1m","5m","15m","30m","1h","4h","1d"].forEach((tf,i)=>{
+      const el=cells[`col-rsi-${tf}`]; if(!el) return;
+      const v=rsiVals[i]; 
+      const txt=(v!==undefined && v!==null)?v.toFixed(1):"n/d";
+      const cls=(v!==undefined && v!==null)?`col-rsi-${tf} ${v>70?"up":v<30?"down":""}`:`col-rsi-${tf}`;
+      if(el.textContent!==txt){ el.textContent=txt; el.className=cls; flashSeMudou(el,v); }
+    });
+
+    
+    const variacoesArr=[
+      calcularVariacaoIncremental(symbol,1,precoNum)??scoreData.variacao?.variacao1m?.value,
+      calcularVariacaoIncremental(symbol,5,precoNum)??scoreData.variacao?.variacao5m?.value,
+      calcularVariacaoIncremental(symbol,15,precoNum)??scoreData.variacao?.variacao15m?.value,
+      calcularVariacaoIncremental(symbol,30,precoNum)??scoreData.variacao?.variacao30m?.value,
+      calcularVariacaoIncremental(symbol,60,precoNum)??scoreData.variacao?.variacao1h?.value,
+      calcularVariacaoIncremental(symbol,240,precoNum)??scoreData.variacao?.variacao4h?.value,
+      calcularVariacaoIncremental(symbol,1440,precoNum)??scoreData.variacao?.variacao1d?.value
+    ];
+    ["1m","5m","15m","30m","1h","4h","1d"].forEach((tf,i)=>{
+      const el=cells[`col-var-${tf}`]; if(!el) return;
+      const v=variacoesArr[i];
+      const txt=(v===null||v===undefined)?"n/d":v.toFixed(2)+"%";
+      const cls=(v===null||v===undefined)?`col-var-${tf}`:`col-var-${tf} ${v>0?"up":v<0?"down":""}`;
+      if(el.textContent!==txt){ el.textContent=txt; el.className=cls; flashSeMudou(el,v); }
+    });
+
+
+ 
+    const vols = scoreData.volume || {};
+    [["5m","vol5m"],["1h","vol1h"],["4h","vol4h"],["1d","vol1d"]].forEach(([tf,k])=>{
+      const el = row.querySelector(`.col-vol-${tf}`);
+      if(!el) return;
+      const val = vols[k]?.volume;
+      if(!val || isNaN(val)) { el.textContent="n/d"; el.className=`col-vol-${tf}`; return; }
+      const v=parseFloat(val);
+      let classe="volume-1";
+      if(v>200_000_000) classe="volume-5"; else if(v>100_000_000) classe="volume-4";
+      else if(v>50_000_000) classe="volume-3"; else if(v>10_000_000) classe="volume-2";
+      el.textContent="$"+formatarNumero(v);
+      el.className=`col-vol-${tf} ${classe}`;
+    });
+
+
+["1m","5m","15m","30m","1h","4h","1d"].forEach(tf=>{
+  const el = cells[`col-exp-${tf}`]; 
+  if (!el) return;
+  
+  const v = scoreData.exp?.[`exp${tf}`] ?? 0;
+  const cls = `col-exp-${tf} ${
+    v >= 200 ? "exp-9" :
+    v >= 150 ? "exp-8" :
+    v >= 100 ? "exp-7" :
+    v >= 60 ? "exp-6" :
+    v <= -200 ? "exp-2" :
+    v <= -150 ? "exp-3" :
+    v <= -100 ? "exp-4" :
+    v <= 40 ? "exp-5" : 
+    "exp-1"
+  }`;
+
+  
+  const display = Number.isFinite(v) ? v.toFixed(2) : "n/d";
+
+  if (el.textContent !== display) { 
+    el.textContent = display; 
+    el.className = cls; 
+    flashSeMudou(el, v); 
+  }
+});
+
+
+["1m","5m","15m","30m","1h","4h","1d"].forEach(tf => {
+  const el = cells[`col-candle-${tf}`];
+  if (!el) return;
+
+  const cacheTF = candlesCache?.[symbol]?.[tf];
+  if (!cacheTF) {
+
+    el.innerHTML = "";
+    return; 
+  }
+
+  
+  const { open, close } = cacheTF;
+  const expVal = Number.isFinite(cacheTF.exp) ? cacheTF.exp :
+                 Number(scoreData?.exp?.[`exp${tf}`] ?? 50);
+  const volRelVal = Number.isFinite(cacheTF.volRel) ? cacheTF.volRel :
+                    Number(scoreData?.volRel?.[`volRel${tf}`] ?? 1);
+
+ 
+  if (symbol === "BTCUSDT" && tf === "1m") {
+    console.log(`[DBG-CANDLE] ${symbol} ${tf}`, { open, close, expVal, volRelVal });
+  }
+
+  
+  const color = getCandleColor(open, close, expVal, volRelVal);
+
+  
+  el.innerHTML = color
+    ? `<svg width="20" height="20">
+         <rect x="2" y="2" width="16" height="16" rx="3" ry="3"
+               fill="${color}" stroke="#111" stroke-width="1"/>
+       </svg>`
+    : "";
+});
+
+
+     
+
+ 
+    const evCell=cells["col-eventos"];
+    const eventos=scoreData.eventos||[];
+    if(evCell){
+      const html=eventos.length ? eventos.map(ev=>`<span>${ev}</span>`).join(" ")
+                                : `<span style="color:#aaa;font-style:italic;">Nenhum evento</span>`;
+      if(evCell.innerHTML!==html) evCell.innerHTML=html;
+    }
+
+  } catch(err){
+    console.error(`❌ Erro ao montar/atualizar linha de ${symbol}:`,err);
+  }
+}
+
+    
+
+
+
+  function listasIguais(lista1, lista2) {
+  if (lista1.length !== lista2.length) return false;
+  for (let i = 0; i < lista1.length; i++) {
+    if (lista1[i] !== lista2[i]) return false;
+  }
+  return true;
+}
+ 
+  
+ 
+const mapaLinhas = {}; 
+
+  let symbolsOriginais = [];
+  let symbolsParaExibir = [];
+
+  let grupoAtual = 0;
+   
+  let indiceLote = 0;
+
+  
+  const lotes = [10, 20, 50, 100, 100];
+  const intervaloCurto = 40_000;  
+  const intervaloMedio = 60_000; 
+  const intervaloLongo = 180_000; 
+
+
+
+async function atualizarTabelaCockpit() {
+  try {
+    if (!symbolsParaExibir.length) return;
+
+    const grupoTamanho = 70;
+    const inicio = grupoAtual * grupoTamanho;
+    const fim = inicio + grupoTamanho;
+    const grupo = symbolsParaExibir.slice(inicio, fim);
+
+    if (grupo.length === 0) return;
+
+    const resp = await fetch(`${API_BASE}/score-lote?symbols=${grupo.join(",")}`);
+    const lote = await resp.json();
+
+    for (let i = 0; i < lote.length; i++) {
+      const scoreData = lote[i];
+      const symbol = scoreData.symbol;
+      if (!symbol || scoreData.error) continue;
+
+     
+      await buscarLinha(symbol, inicio + i, scoreData);
+
+      
+      aplicarAnimacoes(symbol, scoreData);
+    }
+
+    grupoAtual = (grupoAtual + 1) % Math.ceil(symbolsParaExibir.length / grupoTamanho);
+  } catch (err) {
+    console.error("❌ Erro em atualizarTabelaCockpit:", err);
+  }
+}
+
+
+async function reordenarOuAdicionarLinhas(novaOrdemSymbols) {
+  if (!painelBody) {
+    console.warn("⚠️ painelBody não existe no DOM.");
+    return;
+  }
+
+  for (let i = 0; i < novaOrdemSymbols.length; i++) {
+    const symbol = novaOrdemSymbols[i];
+
+   
+    if (!symbol || symbol.includes("1000") || symbol.includes("BABY")) continue;
+
+    const row = document.getElementById(`row-${symbol}`);
+    if (row) {
+      
+      const indexCell = row.querySelector(".col-index");
+      if (indexCell) indexCell.textContent = i + 1;
+
+      
+      painelBody.appendChild(row);
+    } else {
+      try {
+        
+        await buscarLinha(symbol, i, {}); 
+      } catch (err) {
+        console.error(`Erro ao adicionar linha para ${symbol}:`, err);
+      }
+    }
+  }
+}
+
+
+
+async function obterTopAtivosPorVolume(limit = 450) {
+  try {
+    const data = await fetch(`${API_BASE}/top-ativos?limit=${limit}`)
+      .then(r => r.json());
+
+    if (!Array.isArray(data) || data.length === 0) {
+      throw new Error("Lista de ativos inválida");
+    }
+
+    return data;
+  } catch (err) {
+    console.error("Erro ao obter top ativos do servidor:", err);
+    return ["BTCUSDT", "ETHUSDT"];
+  }
+}
+  
+
+
+ 
+  async function verificarStatusBot() {
+    try {
+      const res = await fetch(`${API_BASE}/status`);
+      const data = await res.text();
+      document.getElementById("bot-status").textContent = data.includes("ativo") ? "✅ Ativo" : "⚠️ Inativo";
+    } catch {
+      document.getElementById("bot-status").textContent = "❌ Offline";
+    }
+  }
+  verificarStatusBot();
+  setInterval(verificarStatusBot, 15000);
+
+
+async function prepararCandlesIniciais() {
+  try {
+    if (!Array.isArray(symbolsParaExibir) || symbolsParaExibir.length === 0) {
+      console.warn("⚠️ Nenhum símbolo disponível para inicializar candles.");
+      return;
+    }
+
+    console.log("🕯️ Iniciando pré-carregamento de candles...");
+    await inicializarCandles(symbolsParaExibir.slice(0, 200)); 
+
+    console.log("✅ Candles iniciais carregados com sucesso!");
+  } catch (err) {
+    console.error("❌ Erro ao inicializar candles:", err);
+  }
+}
+async function inicializarTudo() {
+  try {
+    
+    criarCabecalhoTabela();
+
+    
+    const favoritos = JSON.parse(localStorage.getItem("favoritos") || "[]");
+
+    if (favoritos.length > 0) {
+      symbolsParaExibir = favoritos;
+      symbolsOriginais = [...symbolsParaExibir];
+    } else {
+      symbolsParaExibir = await obterTopAtivosPorVolume(450);
+      symbolsOriginais = [...symbolsParaExibir];
+    }
+
+    grupoAtual = 0;
+
+   
+    await prepararCandlesIniciais();
+    
+      conectarWSServidor();
+    
+    setTimeout(() => {
+      iniciarWebSocketTicker();
+      iniciarWebSocketCandles(symbolsParaExibir);
+    }, 3000);
+   
+
+    
+    await atualizarTabelaCockpit();
+
+    
+    setInterval(atualizarTabelaCockpit, intervaloCurto);
+    setInterval(() => { grupoAtual = 0; }, intervaloLongo);
+
+   
+    atualizarCartoesBTC();
+    setInterval(atualizarCartoesBTC, 15_000);
+
+    
+    verificarStatusBot();
+    setInterval(verificarStatusBot, 15_000);
+
+    console.log("✅ Cockpit inicializado com", symbolsParaExibir.length, "símbolos");
+  } catch (err) {
+    console.error("❌ Erro na inicialização:", err);
+  }
+}
+
+
+inicializarTudo(); 
+
+
+
+
+setInterval(() => {
+  console.log("♻️ Reiniciando SVGs de candles/sparks para liberar VRAM");
+  document.querySelectorAll("td[data-candle], td svg").forEach(td => (td.innerHTML = ""));
+}, 60 * 60 * 1000);
+
+
+
+setInterval(() => {
+  console.log("🔌 Reiniciando WebSockets para liberar memória de buffers");
+
+  try {
+    if (window.wsTicker && window.wsTicker.readyState === WebSocket.OPEN) {
+      window.wsTicker.close();
+    }
+    if (window.wsCandles && window.wsCandles.readyState === WebSocket.OPEN) {
+      window.wsCandles.close();
+    }
+
+    
+    iniciarWebSocketTicker();
+    iniciarWebSocketCandles(symbolsParaExibir);
+  } catch (err) {
+    console.warn("⚠️ Erro ao reiniciar WebSockets:", err);
+  }
+}, 30 * 60 * 1000);
+
+
+
+function limparCachesPesados() {
+  console.log("🧹 Limpando caches às", new Date().toLocaleTimeString());
+
+  const manter = new Set(symbolsParaExibir);
+
+ 
+  for (const k in candlesCache) if (!manter.has(k)) delete candlesCache[k];
+  for (const k in historicoPrecos) if (!manter.has(k)) delete historicoPrecos[k];
+  for (const k in sparkCache) delete sparkCache[k];
+  for (const k in miniMapaDados) delete miniMapaDados[k];
+
+  
+  const limit = 10;
+  for (const map of [oiHistory, volumeHistory, rsiHistory, tradesHistory]) {
+    for (const sym in map) {
+      if (Array.isArray(map[sym])) map[sym] = map[sym].slice(-limit);
+    }
+  }
+
+  const linhas = painelBody?.querySelectorAll("tr") || [];
+  if (linhas.length > 400) {
+    for (let i = 400; i < linhas.length; i++) painelBody.removeChild(linhas[i]);
+  }
+
+  
+if (window.atualizarStatusMonitor) window.atualizarStatusMonitor("normal");
+
+
+if (window.atualizarStatusMonitor) window.atualizarStatusMonitor("emergencia");
+
+
+  
+  if (globalThis.gc) {
+    try {
+      console.log("🧠 Forçando GC manual...");
+      globalThis.gc();
+    } catch {}
+  }
+
+  console.log("✅ Caches e históricos podados");
+}
+
+setInterval(limparCachesPesados, 15 * 60 * 1000); 
+
+
+
+setInterval(() => {
+  try {
+    if (!performance.memory) return;
+    const heap = performance.memory.usedJSHeapSize / 1048576;
+    const heapLimit = performance.memory.jsHeapSizeLimit / 1048576;
+    const heapPct = (heap / heapLimit) * 100;
+
+    if (heapPct > 80) {
+      console.warn(`🚨 Heap alto (${heapPct.toFixed(1)}%). Executando limpeza emergencial...`);
+      limparCachesPesados();
+
+      
+      document.querySelectorAll("td[data-candle], td svg").forEach(td => (td.innerHTML = ""));
+      
+     
+      if (heapPct > 90) {
+        console.warn("🔁 Reiniciando WebSockets (modo crítico)");
+        if (window.wsTicker?.readyState === WebSocket.OPEN) window.wsTicker.close();
+        if (window.wsCandles?.readyState === WebSocket.OPEN) window.wsCandles.close();
+        iniciarWebSocketTicker();
+        iniciarWebSocketCandles(symbolsParaExibir);
+      }
+
+      if (globalThis.gc) globalThis.gc();
+      console.log("✅ Modo de emergência executado com sucesso");
+    }
+  } catch (err) {
+    console.warn("Erro no modo de emergência:", err);
+  }
+}, 30 * 1000); 
+
+
+
+window.addEventListener("beforeunload", () => {
+  try {
+    if (window.wsTicker?.readyState === WebSocket.OPEN) window.wsTicker.close();
+    if (window.wsCandles?.readyState === WebSocket.OPEN) window.wsCandles.close();
+  } catch {}
+});
+
+
+
+(function iniciarMonitorMemoria() {
+  if (!("memory" in performance)) {
+    console.warn("⚠️ Monitor de memória não suportado neste navegador.");
+    return;
+  }
+
+
+  const monitor = document.createElement("div");
+  monitor.style.position = "fixed";
+  monitor.style.top = "4px";
+  monitor.style.right = "10px";
+  monitor.style.background = "rgba(15,15,15,0.85)";
+  monitor.style.color = "#00ffb7";
+  monitor.style.fontFamily = "monospace";
+  monitor.style.fontSize = "12px";
+  monitor.style.padding = "6px 10px";
+  monitor.style.border = "1px solid #222";
+  monitor.style.borderRadius = "6px";
+  monitor.style.zIndex = "9999";
+  monitor.style.boxShadow = "0 0 10px rgba(0,255,183,0.3)";
+  monitor.style.userSelect = "none";
+  monitor.style.opacity = "0.9";
+  monitor.style.transition = "opacity 0.3s";
+  monitor.onmouseenter = () => (monitor.style.opacity = "1");
+  monitor.onmouseleave = () => (monitor.style.opacity = "0.4");
+  document.body.appendChild(monitor);
+
+  
+  let lastTime = performance.now();
+  let frames = 0;
+  let fps = 0;
+  let ultimaLimpeza = "-";
+  let statusLimpeza = "OK";
+  let contadorNormal = 0;
+  let contadorEmerg = 0;
+
+  
+  window.atualizarStatusMonitor = function (tipo = "normal") {
+    ultimaLimpeza = new Date().toLocaleTimeString();
+    if (tipo === "emergencia") {
+      contadorEmerg++;
+      statusLimpeza = "🚨 Emergencial";
+    } else {
+      contadorNormal++;
+      statusLimpeza = "🧹 Normal";
+    }
+  };
+
+ 
+  function medirFPS() {
+    const agora = performance.now();
+    frames++;
+    if (agora - lastTime >= 1000) {
+      fps = frames;
+      frames = 0;
+      lastTime = agora;
+    }
+    requestAnimationFrame(medirFPS);
+  }
+  medirFPS();
+
+
+  setInterval(() => {
+    try {
+      const heap = performance.memory.usedJSHeapSize / 1048576; // MB
+      const heapTotal = performance.memory.jsHeapSizeLimit / 1048576;
+      const linhas = painelBody?.querySelectorAll("tr").length || 0;
+      const heapPct = ((heap / heapTotal) * 100).toFixed(1);
+
+      monitor.innerHTML =
+        `💾 <b>Monitor uXe</b><br>` +
+        `Heap: ${heap.toFixed(1)} MB (${heapPct}% usado)<br>` +
+        `DOM: ${linhas} linhas<br>` +
+        `FPS: ${fps}<br>` +
+        `Últ. limpeza: ${ultimaLimpeza}<br>` +
+        `Status: ${statusLimpeza}<br>` +
+        `🧹 Limpezas: ${contadorNormal} normais / ${contadorEmerg} emergenciais`;
+
+     
+      monitor.style.color = heapPct > 80 ? "#ff5757" : "#00ffb7";
+    } catch (err) {
+      console.warn("Monitor de memória falhou:", err);
+    }
+  }, 2000);
+})();
+
+
+function aplicarAnimacoes(symbol, scoreData) {
+  const row = document.querySelector(`tr[data-symbol="${symbol}"]`);
+  if (!row) return;
+
+
+  const tfPreco = ["1m","5m","15m","30m","1h","4h","1d"];
+  const variacoes = [
+    scoreData.variacao?.variacao1m?.value,
+    scoreData.variacao?.variacao5m?.value,
+    scoreData.variacao?.variacao15m?.value,
+    scoreData.variacao?.variacao30m?.value,
+    scoreData.variacao?.variacao1h?.value,
+    scoreData.variacao?.variacao4h?.value,
+    scoreData.variacao?.variacao1d?.value,
+  ];
+  variacoes.forEach((v,i)=>{
+    const td = row.querySelector(`td[data-var="${tfPreco[i]}"]`);
+    if (td && v !== null && v !== undefined) {
+      const atual = parseFloat(td.textContent);
+      if (isNaN(atual) || atual.toFixed(2) !== v.toFixed(2)) {
+        animarAtualizacao(td, v, v > 0);
+      }
+    }
+  });
+
+  
+  const tfRsi = ["5m","15m","30m","1h","4h","1d"];
+  const rsis = [
+    scoreData.rsi?.rsi5m,
+    scoreData.rsi?.rsi15m,
+    scoreData.rsi?.rsi30m,
+    scoreData.rsi?.rsi1h,
+    scoreData.rsi?.rsi4h,
+    scoreData.rsi?.rsi1d
+  ];
+  rsis.forEach((v,i)=>{
+    const td = row.querySelector(`td[data-rsi="${tfRsi[i]}"]`);
+    if (td && typeof v === "number") {
+      const atual = parseFloat(td.textContent);
+      if (isNaN(atual) || atual.toFixed(1) !== v.toFixed(1)) {
+        animarAtualizacao(td, v, v > 50); 
+      }
+    }
+  });
+
+  
+  const tfOi = ["5m","15m","1h"];
+  const oiVars = [
+    scoreData.oiData?.var5m,
+    scoreData.oiData?.var15m,
+    scoreData.oiData?.var1h
+  ];
+  oiVars.forEach((v,i)=>{
+    const td = row.querySelector(`td[data-oi-var="${tfOi[i]}"]`);
+    if (td && typeof v === "number") {
+      const atual = parseFloat(td.textContent);
+      if (isNaN(atual) || atual.toFixed(2) !== v.toFixed(2)) {
+        animarAtualizacao(td, v, v > 0);
+      }
+    }
+  });
+
+  
+  const tfVol = ["5m","1h","4h","1d"];
+  const vols = [
+    scoreData.volume?.vol5m?.volume,
+    scoreData.volume?.vol1h?.volume,
+    scoreData.volume?.vol4h?.volume,
+    scoreData.volume?.vol1d?.volume
+  ];
+  vols.forEach((v,i)=>{
+    const td = row.querySelector(`td[data-vol="${tfVol[i]}"]`);
+    if (td && typeof v === "number") {
+      const atual = parseFloat(td.textContent.replace(/\$|,/g,""));
+      if (isNaN(atual) || atual !== v) {
+        animarAtualizacao(td, v, v > atual);
+      }
+    }
+  });
+}
+
+
+
+
+document.getElementById("filtro-ordenacao").addEventListener("change", async (e) => {
+  const criterio = e.target.value;
+  console.log("Filtro selecionado:", criterio);
+
+  const pool = [...symbolsOriginais];
+
+ 
+  const partes = criterio.split("-");
+  let tipo = partes[0];
+  let sub = partes[1];
+  let intervalo = partes[2] || null;
+
+  let lista = [];
+
+  try {
+    if (tipo === "top50") {
+      symbolsParaExibir = pool;
+      grupoAtual = 0;
+      await reordenarOuAdicionarLinhas(pool);
+      return;
+    }
+
+    if (tipo === "volume") {
+      lista = await Promise.all(pool.map(async symbol => {
+        const json = await fetchJSONSafe(`/volume-usd/${symbol}/${sub}`, { volume: 0 });
+        return { symbol, val: Number(json.volume) || 0 };
+      }));
+    } 
+    else if (tipo === "oi" && sub !== "var") {
+    
+      lista = await Promise.all(pool.map(async symbol => {
+        const data = await fetchJSONSafe(`/oi/${symbol}`, {});
+        return { symbol, val: Number(data?.sumOpenInterest) || 0 };
+      }));
+    }
+    else if (tipo === "oi" && sub === "var") {
+      
+      lista = await Promise.all(pool.map(async symbol => {
+        const data = await fetchJSONSafe(`/oi/${symbol}`, {});
+        if (!data) return { symbol, val: 0 };
+
+        let pct = 0;
+        if (intervalo === "5m") pct = data.var5m ?? 0;
+        else if (intervalo === "15m") pct = data.var15m ?? 0;
+        else if (intervalo === "1h") pct = data.var1h ?? 0;
+
+        return { symbol, val: pct };
+      }));
+    }
+    else if (tipo === "oiusd") {
+      lista = await Promise.all(pool.map(async symbol => {
+        const d = await fetchJSONSafe(`/oi/${symbol}`, {});
+        return { symbol, val: Number(d?.oiUsd) || 0 };
+      }));
+    }
+    else if (tipo === "expbtc") {
+      lista = await Promise.all(pool.map(async symbol => {
+        const r = await compararComBTC(symbol, sub);
+        return { symbol, val: Math.abs(parseFloat(r.value) || 0) };
+      }));
+    }
+    else if (tipo === "expeth") {
+      lista = await Promise.all(pool.map(async symbol => {
+        const r = await compararComETH(symbol, sub);
+        return { symbol, val: Math.abs(parseFloat(r.value) || 0) };
+      }));
+    }
+    else {
+      console.warn("Critério não reconhecido:", criterio);
+      return;
+    }
+
+    lista = lista.filter(x => !isNaN(x.val));
+
+    
+    lista.sort((a, b) => b.val - a.val);
+
+   
+    const novaOrdemTotal = lista.map(x => x.symbol);
+
+   
+    const novaOrdemVisivel = novaOrdemTotal.filter(s =>
+      painelBody.querySelector(`tr[data-symbol="${s}"]`)
+    );
+
+    symbolsParaExibir = novaOrdemTotal;
+    grupoAtual = 0;
+
+    await reordenarOuAdicionarLinhas(novaOrdemVisivel);
+    console.log("Nova ordem DOM:", novaOrdemVisivel.slice(0, 10));
+
+  } catch (err) {
+    console.error("Erro no filtro:", err);
+  }
+});
+
+
+  const INTERVALOS_TRADES = {
+  "1m": 60_000,
+  "5m": 5 * 60_000,
+  "15m": 15 * 60_000,
+  "30m": 30 * 60_000,
+  "1d": 24 * 60 * 60_000
+};
+
+const contagemTrades = {};
+const ultimosTimestamps = {};
+const MAX_STREAMS = 200; 
+
+
+
+
+   async function salvarAlertas() {
+  await fetch("/alertas-preco", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(alertasPreco)
+  });
+}
+
+async function carregarAlertas() {
+  try {
+    const resp = await fetch("/alertas-preco");
+    alertasPreco = await resp.json();
+  } catch {
+    alertasPreco = {};
+  }
+}
+
+
+const historicoAlertas = [];
+
+let alertasAtivos = [];
+
+async function carregarAlertasAtivos() {
+  try {
+    const resp = await fetch("/alertas-ativos");
+    alertasAtivos = await resp.json();
+  } catch {
+    alertasAtivos = [];
+  }
+}
+
+async function salvarAlertasAtivos() {
+  await fetch("/alertas-ativos", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(alertasAtivos)
+  });
+}
+
+
+
+function adicionarAlerta(msg, tipo = "geral") {
+  historicoAlertas.unshift({ msg, tipo, hora: new Date().toLocaleTimeString() });
+  if (historicoAlertas.length > 20) historicoAlertas.pop(); // mantém só os últimos 20
+  
+  const ul = document.getElementById("alertas-ul");
+  ul.innerHTML = historicoAlertas
+    .map(a => `<li>[${a.hora}] ${a.msg}</li>`)
+    .join("");
+}
+
+
+document.addEventListener("keydown", (e) => {
+  if (e.target.classList.contains("alerta-preco") && e.key === "Enter") {
+    const symbol = e.target.dataset.symbol;
+    const valor = parseFloat(e.target.value);
+    if (!isNaN(valor)) {
+      alertasPreco[symbol] = valor;
+      salvarAlertas();
+      e.target.value = "";
+      
+      notificar(`✅ Alerta criado`, "preco");
+    }
+  }
+});
+
+
+
+const TL = 1e-8; 
+function epsilonAbs(a, b) {
+  return Math.abs(a - b) <= TL;
+}
+
+
+document.addEventListener("DOMContentLoaded", renderFeed);
+
+const btnLimparAlertas = document.createElement("button");
+btnLimparAlertas.id = "btn-limpar-alertas";
+btnLimparAlertas.style.marginLeft = "10px";
+btnLimparAlertas.style.padding = "5px 10px";
+btnLimparAlertas.style.cursor = "pointer";
+
+
+
+const btnResetAlertas = document.createElement("button");
+btnResetAlertas.id = "btn-reset-alertas";
+btnResetAlertas.innerText = "Limpar Alertas";
+btnResetAlertas.style.marginLeft = "10px";
+btnResetAlertas.style.padding = "5px 10px";
+btnResetAlertas.style.cursor = "pointer";
+
+
+const btnReset = document.getElementById("btn-reset-alertas");
+const containerSino = document.getElementById("container-alertas");
+if (containerSino) {
+    containerSino.insertAdjacentElement("beforebegin", btnResetAlertas);
+    btnResetAlertas.insertAdjacentElement("afterend", btnLimparAlertas);
+    btnLimparAlertas.insertAdjacentElement("afterend", containerSino);
+}
+
+
+btnResetAlertas.addEventListener("click", () => {
+  if (!confirm("Tem certeza que deseja apagar todos os alertas de preço disparados?")) return;
+
+ 
+  for (let i = historicoAlertas.length - 1; i >= 0; i--) {
+    if (historicoAlertas[i].tipo === "preco") {
+      historicoAlertas.splice(i, 1);
+    }
+  }
+
+  
+  const ul = document.getElementById("alertas-ul");
+  ul.innerHTML = historicoAlertas
+    .map(a => `<li>[${a.hora}] ${a.msg}</li>`)
+    .join("");
+
+
+
+  notificar("✅ Alertas de preço disparados foram apagados. Os alertas ativos permanecem.");
+});
+-
+
+document.getElementById("btn-reset-alertas").addEventListener("click", () => {
+  if (!confirm("Tem certeza que deseja apagar todos os alertas e restaurar o limite?")) return;
+
+  
+
+  
+  document.querySelectorAll(".alerta-preco").forEach(input => input.value = "");
+
+  notificar("✅ Todos os alertas foram resetados e o limite foi restaurado.");
+});
+
+
+
+
+  </script>
