@@ -1592,7 +1592,7 @@ const ATIVOS_PRIORITARIOS = [ "BTCUSDT", "ETHUSDT"];
 
 
 // =========================[ RADAR DE ATIVOS ]=========================
-sync function obterTopAtivosRadar(limitTotal = 50) {
+async function obterTopAtivosRadar(limitTotal = 50) {
   const { data } = await api.get(`${BINANCE_FUTURES}/ticker/24hr`);
 
   const candidatos = data
@@ -3044,6 +3044,7 @@ app.get("/", (req, res) => {
 });
 
 inicializarServer();
+
 
 
 
