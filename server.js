@@ -10,7 +10,7 @@ const fs = require("fs");
 const path = require("path");
 const zlib = require("zlib");
 const { WebSocketServer } = require("ws");
-
+const PORT = Number(process.env.PORT) || 3000;
 
 
 
@@ -3082,6 +3082,7 @@ wss.on("connection", (ws) => {
 
 
 let recomputeTimer = null;
+
 
 
 
