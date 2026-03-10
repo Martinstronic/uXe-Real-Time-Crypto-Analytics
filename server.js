@@ -262,28 +262,61 @@ async function fetchJSON(url, fallback = null) {
   }
 }
 
-async function fetchKlinesWithFallback(symbol, interval, market = "spot") {
-  try {
-    let baseUrl =
-      market === "futures"
-        ? "https://fapi.binance.com/fapi/v1/klines"
-        : "https://api.binance.com/api/v3/klines";
+const marketSupportCache = new Map(); // symbol -> { futures: true/false, spot: true/false }
+const invalidSymbols = new Set();
 
+async function fetchKlinesWithFallback(symbol, interval, preferredMarket = "futures", limit = 120) {
+  if (invalidSymbols.has(symbol)) return [];
 
-    const url = `${baseUrl}?symbol=${symbol}&interval=${interval}&limit=200`;
+  const known = marketSupportCache.get(symbol) || { futures: true, spot: true };
 
-  
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
+  const attempts =
+    preferredMarket === "futures"
+      ? [
+          { name: "futures", enabled: known.futures, url: `${BINANCE_FUTURES}/klines?symbol=${symbol}&interval=${interval}&limit=${limit}` },
+          { name: "spot", enabled: known.spot, url: `${BINANCE_SPOT}/klines?symbol=${symbol}&interval=${interval}&limit=${limit}` }
+        ]
+      : [
+          { name: "spot", enabled: known.spot, url: `${BINANCE_SPOT}/klines?symbol=${symbol}&interval=${interval}&limit=${limit}` },
+          { name: "futures", enabled: known.futures, url: `${BINANCE_FUTURES}/klines?symbol=${symbol}&interval=${interval}&limit=${limit}` }
+        ];
+
+  for (const attempt of attempts) {
+    if (!attempt.enabled) continue;
+
+    try {
+      const response = await fetch(attempt.url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0"
+        }
+      });
+
+      if (!response.ok) {
+        const status = response.status;
+
+        if (status === 400) {
+          const cur = marketSupportCache.get(symbol) || { futures: true, spot: true };
+          cur[attempt.name] = false;
+          marketSupportCache.set(symbol, cur);
+
+          if (!cur.futures && !cur.spot) {
+            invalidSymbols.add(symbol);
+          }
+        }
+
+        throw new Error(`HTTP ${status}`);
+      }
+
+      const data = await response.json();
+      if (Array.isArray(data) && data.length > 0) {
+        return data;
+      }
+    } catch (err) {
+      console.error(`❌ fetchKlinesWithFallback (${symbol}, ${attempt.name}) ${err.message}`);
     }
-
-    const data = await response.json();
-    return data;
-  } catch (err) {
-    console.error(`❌ fetchKlinesWithFallback (${symbol}, ${market})`, err.message);
-    return [];
   }
+
+  return [];
 }
 
 
@@ -571,20 +604,12 @@ return { value: +(100 - 100 / (1 + rs)).toFixed(2), avgGain, avgLoss, lastClose:
 }
 
 
-// smarter fetch order: high priority -> prefer futures (faster for futures-rich pairs), others prefer spot
 async function fetchKlinesPrefer(symbol, tf, prioridade) {
-// prioridade: 'high'|'mid'|'low'
-// prefer futures for high, else prefer spot
-const tryFuturesFirst = (prioridade === 'high');
-let kl = null;
-if (tryFuturesFirst) {
-kl = await fetchKlinesWithFallback(symbol, tf, 'futures', 500);
-if (!kl || kl.length === 0) kl = await fetchKlinesWithFallback(symbol, tf, 'spot', 500);
-} else {
-kl = await fetchKlinesWithFallback(symbol, tf, 'spot', 500);
-if (!kl || kl.length === 0) kl = await fetchKlinesWithFallback(symbol, tf, 'futures', 500);
-}
-return kl;
+  let kl = await fetchKlinesWithFallback(symbol, tf, "futures", 120);
+  if (!kl || kl.length === 0) {
+    kl = await fetchKlinesWithFallback(symbol, tf, "spot", 120);
+  }
+  return kl;
 }
 
 // =======================[ Telegram ]=======================
@@ -1602,6 +1627,7 @@ async function obterTopAtivosRadar(limitTotal = 50) {
       !ATIVOS_EXCLUIDOS.includes(d.symbol)
     )
     .filter(d => validFuturesSymbols.has(d.symbol))
+    .filter(d => !invalidSymbols.has(d.symbol))
     .sort((a, b) => parseFloat(b.quoteVolume || 0) - parseFloat(a.quoteVolume || 0));
 
   const baseTop = candidatos.slice(0, limitTotal).map(d => d.symbol);
@@ -2952,36 +2978,18 @@ function recomputeStreams() {
 }
 
 // =======================================================
-// 🕒 Auto-Recompute periódico das streams Binance
+// 🕒 Auto-Recompute periódico das streams Binance a cada 2 horas
 // =======================================================
-const RECOMPUTE_INTERVAL_MIN = 10; 
-let ultimaRecompute = 0;
+const TOP_REFRESH_MS = 2 * 60 * 60 * 1000;
 
-setInterval(() => {
-  const agora = Date.now();
-  const diffMin = (agora - ultimaRecompute) / 60000;
-  if (diffMin < RECOMPUTE_INTERVAL_MIN) return;
-
-  ultimaRecompute = agora;
-  console.log(`⏱️ Recompute automático iniciado (${RECOMPUTE_INTERVAL_MIN} min)`);
-
+setInterval(async () => {
   try {
-    
-    obterTopAtivosRadar()
-      .then(({ prioritarios }) => {
-        console.log(`🔁 Top volume atualizado (${prioritarios.length} símbolos)`);
-        //recomputeStreams(); 
-      })
-      .catch(err => {
-        console.warn("⚠️ Falha ao atualizar top volume antes do recompute:", err.message);
-     //   recomputeStreams();
-      });
-
+    console.log("🔄 Refresh programado do TopRadar (2h)");
+    await atualizarTopRadar();
   } catch (err) {
-    console.error("❌ Erro no ciclo de recompute automático:", err.message);
+    console.warn("⚠️ Falha no refresh programado do TopRadar:", err.message);
   }
-
-}, 60_000); 
+}, TOP_REFRESH_MS);
 
 
 // ==========================================
@@ -3004,6 +3012,23 @@ function broadcastToSymbol(symbol, payload) {
   }
 }
 
+function subscribeClient(ws, symbols = []) {
+  symbols.forEach(s => {
+    const sym = s.toUpperCase();
+    if (!symbolSubscribers.has(sym)) symbolSubscribers.set(sym, new Set());
+    symbolSubscribers.get(sym).add(ws);
+  });
+  // recomputeStreams();
+}
+
+function unsubscribeClient(ws) {
+  for (const [sym, set] of symbolSubscribers.entries()) {
+    set.delete(ws);
+    if (set.size === 0) {
+      // closeStream(sym);
+    }
+  }
+}
 
 wss.on("connection", (ws) => {
   clientesAtivos.add(ws);
@@ -3036,7 +3061,7 @@ let recomputeTimer = null;
 
 // ===============================[ 22) START SERVER ]===============================
 app.listen(PORT, () => {
-  console.log(`✅ Server online: http://localhost:${PORT}`, new Date().toLocaleTimeString());
+  console.log(`✅ Server online:${PORT}`, new Date().toLocaleTimeString());
 });
 
 app.get("/", (req, res) => {
@@ -3044,6 +3069,7 @@ app.get("/", (req, res) => {
 });
 
 inicializarServer();
+
 
 
 
