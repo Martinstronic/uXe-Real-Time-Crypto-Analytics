@@ -771,12 +771,12 @@ console.warn('⚠️ Watchdog: restarting RSI queue processor');
 processRsiQueues().catch(e => console.error('RSI queue restart failed', e));
 }
 
-const topList = Array.from(top100Volume || []); 
+const topList = Array.from(top50Volume || []).slice(0, 30); 
   for (const s of topList) {
     enqueueRSI(s, 'high'); 
   }
 
-}, 20_000);
+}, 60_000);
 
 
 
@@ -976,7 +976,7 @@ function criarCron(symbols, intervalMs, nome) {
 
 async function iniciarCronsOi() {
   try {
-    const { prioritarios = [], secundarios = [] } = await obterTopAtivosRadar(300);
+    const { prioritarios = [], secundarios = [] } = await obterTopAtivosRadar(MAX_ATIVOS_RADAR);
     const allSymbols = [...prioritarios, ...secundarios];
 
     if (!allSymbols.length) {
@@ -984,9 +984,9 @@ async function iniciarCronsOi() {
       return;
     }
 
-   const top50 = allSymbols.slice(0, 50);
-    const top100 = allSymbols.slice(50, 100);
-    const top200 = allSymbols.slice(100, 200);
+   const top50 = allSymbols.slice(0, 40);
+    const top100 = allSymbols.slice(40, 45);
+    const top200 = allSymbols.slice(45, 50);
     const rest = allSymbols.slice(200);
 
 
@@ -1595,7 +1595,7 @@ async function obterTopAtivosRadar(limitTotal = MAX_ATIVOS_RADAR) {
  
   const topVolume = candidatos.slice(0, LIMIT_PRIORITARIOS).map(d => d.symbol);
   top100Volume = new Set(candidatos.slice(0, 100).map(d => d.symbol));
-  top50Volume = new Set(candidatos.slice(0, 50).map(d => d.symbol)); // 🔥 top 50 dinâmico
+  top50Volume = new Set(candidatos.slice(0, 50).map(d => d.symbol)); 
   console.log(`📊 Top100 atualizado (${top100Volume.size} símbolos).`);
   console.log(`💎 Top50 volume dinâmico atualizado (${top50Volume.size} símbolos).`);
 
@@ -2818,7 +2818,7 @@ function iniciarWsBinanceLotes(symbols) {
   enqueueRSI("BTCUSDT", "high");
 
   
-  primeRsiForList(symbols.slice(0, 100), "high");
+  primeRsiForList(symbols.slice(0, 20), "high");
   if (process.env.DEBUG_RSI === "1")
     console.log("[RSI-PRIME] enqueued top 100 symbols for RSI priming");
 
@@ -3160,3 +3160,4 @@ function closeStream(symbol) {
 app.listen(PORT, () => {
   console.log(`✅ Server online: http://localhost:${PORT}`, new Date().toLocaleTimeString());
 });
+
