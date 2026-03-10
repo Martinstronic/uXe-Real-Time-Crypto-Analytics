@@ -1631,7 +1631,7 @@ async function obterTopAtivosRadar(limitTotal = MAX_ATIVOS_RADAR) {
   
 
   
-  setTimeout(() => recomputeStreams(), 5_000);
+ // setTimeout(() => recomputeStreams(), 5_000);
 
   return { prioritarios, secundarios };
 }
@@ -3152,4 +3152,7 @@ app.listen(PORT, () => {
   console.log(`✅ Server online: http://localhost:${PORT}`, new Date().toLocaleTimeString());
 });
 
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "Painel uXe Crypto.html"));
+});
 
