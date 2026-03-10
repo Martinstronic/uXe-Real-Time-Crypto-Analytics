@@ -686,28 +686,12 @@ button.filtro-ativo {
     <option value="volume-5m">Volume 5m</option>
     <option value="volume-15m">Volume 15m</option>
     <option value="volume-1d">Volume 1d</option>
-    <option value="expbtc-5m">Exposição BTC 5m</option>
-    <option value="expbtc-15m">Exposição BTC 15m</option>
-    <option value="expbtc-1d">Exposição BTC 1d</option>
-    <option value="expeth-5m">Exposição ETH 5m</option>
-    <option value="expeth-15m">Exposição ETH 15m</option>
-    <option value="expeth-1d">Exposição ETH 1d</option>
+ 
   </select>
 
-  <button id="btn-qbull" onclick="ativarFiltro('qbull', this)">Qbull</button>
-  <button id="btn-qbear" onclick="ativarFiltro('qbear', this)">Qbear</button>
-  <button id="btn-flow" onclick="ativarFiltro('flow', this)">FlowStrong</button>
-  <button id="btn-capit" onclick="ativarFiltro('capitulation', this)">Capitulação</button>
+  <button id="btn-oipos-5m" onclick="ativarFiltro('oi>=5-5m', this)">OI +5% (5m)</button>
+  <button id="btn-oineg-5m" onclick="ativarFiltro('oi<=-5-5m', this)">OI -5% (5m)</button>
 
-  <button id="btn-oipos-5m" onclick="ativarFiltro('oi>=3-5m', this)">OI +3% (5m)</button>
-  <button id="btn-oipos-15m" onclick="ativarFiltro('oi>=3-15m', this)">OI +3% (15m)</button>
-  <button id="btn-oipos-1h" onclick="ativarFiltro('oi>=3-1h', this)">OI +3% (1h)</button>
-
-  <button id="btn-oineg-5m" onclick="ativarFiltro('oi<=-3-5m', this)">OI -3% (5m)</button>
-  <button id="btn-oineg-15m" onclick="ativarFiltro('oi<=-3-15m', this)">OI -3% (15m)</button>
-  <button id="btn-oineg-1h" onclick="ativarFiltro('oi<=-3-1h', this)">OI -3% (1h)</button>
-
-  <button id="btn-mapa" onclick="alternarMapa()">Mapa</button>
   <button id="btn-favoritar">Favoritar</button>
   <button onclick="resetFiltros()">Limpar filtros</button>
   <button id="btn-notificacoes" onclick="toggleNotificacoes()">Ativar Notificações</button>
@@ -938,18 +922,6 @@ function atualizarMiniMapaCache(arr) {
 
 
 // Botões
-document.getElementById("btn-qbull").onclick = () =>
-  ativarFiltro(tr => tr.classList.contains("qBull"));
-
-document.getElementById("btn-qbear").onclick = () =>
-  ativarFiltro(tr => tr.classList.contains("qBear"));
-
-document.getElementById("btn-flow").onclick = () =>
-  ativarFiltro(tr => tr.classList.contains("flow-flag"));
-
-document.getElementById("btn-capit").onclick = () =>
-  ativarFiltro(tr => tr.classList.contains("cap-long-row") || tr.classList.contains("cap-short-row"));
-
 document.getElementById("btn-oipos-5m").onclick = () =>
   ativarFiltro("oi>=3-5m");
 
@@ -1017,7 +989,7 @@ function limparFeed() {
 let notificacoesAtivas = false;
 
 function toggleNotificacoes() {
-  const btn = document.getElementById("btn-notificacoes");
+  const btn = document.getElementById("btn-notificacoes").title = "Ativar/desativar notificações do navegador";
 
   if (!notificacoesAtivas) {
   
@@ -1051,7 +1023,7 @@ let sinoSonoroAtivo = false;
 
 function toggleSom() {
   sinoSonoroAtivo = !sinoSonoroAtivo;
-  const sino = document.getElementById("icone-sino");
+  const sino = document.getElementById("icone-sdocument.getElementById("icone-sino").title = "Ativar/desativar som dos alertas";
   if (!sino) return;
   sino.classList.toggle("som-ativo", sinoSonoroAtivo);
 }
@@ -1342,54 +1314,54 @@ async function filtrarPorOI(lista, cond, timeframe) {
 // 🔽 Ordenar lista já filtrada
 // ==============================
 
-
-
 async function aplicarOrdenacaoLista(criterio) {
-  const linhas = Array.from(painelBody.querySelectorAll("tr"));
+  const linhas = Array.from(painelBody.querySelectorAll("tr")).filter(tr => tr.style.display !== "none");
   if (!linhas.length) return;
 
- 
   const valores = await Promise.all(linhas.map(async (linha) => {
     const sym = linha.dataset.symbol;
     let val = 0;
 
-    if (criterio === "oi-5m") {
+    if (criterio === "top50") {
+      val = symbolsOriginais.indexOf(sym) >= 0 ? (999999 - symbolsOriginais.indexOf(sym)) : 0;
+    } else if (criterio === "oi-5m") {
       const d = await fetchJSONSafe(`/oi/${sym}`, {});
       val = d?.sumOpenInterest || 0;
-    }
-    else if (criterio === "oiusd") {
+    } else if (criterio === "oiusd") {
       const d = await fetchJSONSafe(`/oi/${sym}`, {});
       val = d?.oiUsd || 0;
-    }
-    else if (criterio.startsWith("oi-var")) {
-      const tf = criterio.split("-")[2]; 
+    } else if (criterio === "oi-var-5m") {
       const d = await fetchJSONSafe(`/oi/${sym}`, {});
-      val = d?.[`var${tf}`] || 0;
-    }
-    else if (criterio.startsWith("volume")) {
-      const tf = criterio.split("-")[1]; 
-      const d = await fetchJSONSafe(`/volume-usd/${sym}/${tf}`, { volume: 0 });
+      val = d?.var5m || 0;
+    } else if (criterio === "oi-var-15m") {
+      const d = await fetchJSONSafe(`/oi/${sym}`, {});
+      val = d?.var15m || 0;
+    } else if (criterio === "oi-var-1h") {
+      const d = await fetchJSONSafe(`/oi/${sym}`, {});
+      val = d?.var1h || 0;
+    } else if (criterio === "volume-5m") {
+      const d = await fetchJSONSafe(`/volume-usd/${sym}/5m`, { volume: 0 });
       val = d?.volume || 0;
-    }
-    else if (criterio.startsWith("expbtc")) {
-      const tf = criterio.split("-")[1];
-      const r = await compararComBTC(sym, tf);
-      val = Math.abs(parseFloat(r?.value) || 0);
-    }
-    else if (criterio.startsWith("expeth")) {
-      const tf = criterio.split("-")[1];
-      const r = await compararComETH(sym, tf);
-      val = Math.abs(parseFloat(r?.value) || 0);
+    } else if (criterio === "volume-15m") {
+      const d = await fetchJSONSafe(`/volume-usd/${sym}/15m`, { volume: 0 });
+      val = d?.volume || 0;
+    } else if (criterio === "volume-1d") {
+      const d = await fetchJSONSafe(`/volume-usd/${sym}/1d`, { volume: 0 });
+      val = d?.volume || 0;
     }
 
     return { sym, linha, val };
   }));
 
-  
   valores.sort((a, b) => b.val - a.val);
 
-  
-  valores.forEach(v => painelBody.appendChild(v.linha));
+  valores.forEach((v, idx) => {
+    painelBody.appendChild(v.linha);
+    const indexCell = v.linha.querySelector(".col-index");
+    if (indexCell) indexCell.textContent = idx + 1;
+  });
+
+  symbolsParaExibir = valores.map(v => v.sym);
 }
 
 
@@ -1628,31 +1600,29 @@ function getCandleColor(open, close, exp = 50, volRel = 1) {
 function gerarSparkSVG(hist, symbol) {
   const w = 64, h = 18, pad = 2;
 
-  
   if (!Array.isArray(hist) || hist.length === 0) {
     const fallback = (window.candlesHist && window.candlesHist[symbol]) || [];
     hist = Array.isArray(fallback) && fallback.length ? fallback.slice(-30) : [];
   }
   if (!hist.length) return `<svg width="${w}" height="${h}"></svg>`;
 
-  
   hist = hist.map(c => ({
     open: Number(c.open) || Number(c.close) || 0,
     close: Number(c.close) || Number(c.open) || 0,
-    exp: Number.isFinite(c.exp) ? c.exp : 50,
-    volRel: Number.isFinite(c.volRel) ? c.volRel : 1
+    exp: Number.isFinite(Number(c.exp)) ? Number(c.exp) : 50,
+    volRel: Number.isFinite(Number(c.volRel)) ? Number(c.volRel) : 1
   }));
 
   if (hist.length > 30) hist = hist.slice(-30);
 
-  
-  const closes = hist.map(c => c.close);
+  const closes = hist.map(c => c.close).filter(Number.isFinite);
+  if (closes.length < 2) return `<svg width="${w}" height="${h}"></svg>`;
+
   const min = Math.min(...closes);
   const max = Math.max(...closes);
   const span = (max - min) || 1;
   const step = (w - 2 * pad) / Math.max(1, hist.length - 1);
 
- 
   let segments = "";
   for (let i = 1; i < hist.length; i++) {
     const a = hist[i - 1];
@@ -1662,8 +1632,8 @@ function gerarSparkSVG(hist, symbol) {
     const x2 = pad + i * step;
     const y2 = h - pad - ((b.close - min) / span) * (h - 2 * pad);
 
-    
-    const stroke = getCandleColor(a.open, a.close, a.exp, a.volRel) || "#888";
+    const stroke = getCandleColor(a.open, a.close, a.exp, a.volRel) || (a.close >= a.open ? "#00c59e" : "#ff5252");
+
     segments += `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}"
                        x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}"
                        stroke="${stroke}" stroke-width="1.6" stroke-linecap="round"/>`;
@@ -1931,7 +1901,8 @@ function conectarWSServidor() {
   wsServer.onopen = () => {
     wsConectado = true;
     retryCount = 0;
-    console.log("✅ Conectado ao WebSocket do servidor!");
+    console.log("✅ Conectado ao WebSocket do servidor e iniciando webSocketTicker!");
+    iniciarWebSocketTicker(true);
 
     if (Array.isArray(symbolsParaExibir) && symbolsParaExibir.length) {
       setTimeout(() => {
@@ -2039,7 +2010,7 @@ function conectarWSServidor() {
           }
 
          
-          const linha = document.getElementById(`linha-${symbol}`);
+          const linha = document.getElementById(`row-${symbol}`);
           if (linha) {
             const sparkCell = linha.querySelector(".col-spark");
             if (sparkCell && typeof gerarSparkSVG === "function") {
@@ -2064,6 +2035,8 @@ function conectarWSServidor() {
         return;
       }
 
+          
+
       // =======================================================
       // 📦 Histórico inicial (candle_hist → preenchimento inicial)
       // =======================================================
@@ -2076,13 +2049,15 @@ function conectarWSServidor() {
           .map(c => ({
             open: Number(c.open),
             close: Number(c.close),
+            vol: Number(c.vol ?? 0),
             exp: Number(c.exp),
             volRel: Number(c.volRel)
+            ts: Number(c.ts ?? Date.now())
           }))
           .slice(-30);
 
         
-        const linha = document.getElementById(`linha-${symbol}`);
+        const linha = document.getElementById(`row-${symbol}`);
         if (linha) {
           const sparkCell = linha.querySelector(".col-spark");
           if (sparkCell && typeof gerarSparkSVG === "function") {
@@ -2167,29 +2142,32 @@ function encontrarReferenciaMaisProxima(symbol, minutos, toleranciaSegundos = 20
 // 📡 WebSocket de preços via servidor
 // =============================
 let ultimaInscricao = 0;
-function iniciarWebSocketTicker() {
+
+function iniciarWebSocketTicker(force = false) {
   if (!Array.isArray(symbolsParaExibir) || symbolsParaExibir.length === 0) return;
 
-
   const agora = Date.now();
-  if (agora - ultimaInscricao < 30_000) return;
+  if (!force && agora - ultimaInscricao < 5_000) return;
   ultimaInscricao = agora;
 
   if (wsConectado && wsServer?.readyState === WebSocket.OPEN) {
-  
+    const unicos = [...new Set(symbolsParaExibir.map(s => String(s).toUpperCase()))];
     const lotes = [];
-    for (let i = 0; i < symbolsParaExibir.length; i += 100)
-      lotes.push(symbolsParaExibir.slice(i, i + 100));
+    for (let i = 0; i < unicos.length; i += 100) {
+      lotes.push(unicos.slice(i, i + 100));
+    }
 
     lotes.forEach((lote, idx) => {
       setTimeout(() => {
-        wsServer.send(JSON.stringify({ action: "subscribe", symbols: lote }));
-        console.log(`🛰️ [Ticker] Lote ${idx + 1}/${lotes.length} enviado (${lote.length} pares)`);
-      }, idx * 750);
+        if (wsServer?.readyState === WebSocket.OPEN) {
+          wsServer.send(JSON.stringify({ action: "subscribe", symbols: lote }));
+          console.log(`🛰️ [Ticker] Lote ${idx + 1}/${lotes.length} enviado (${lote.length} pares)`);
+        }
+      }, idx * 400);
     });
   } else {
     console.warn("⚠️ WS servidor ainda não conectado. Reagendando inscrição...");
-    setTimeout(iniciarWebSocketTicker, 2000);
+    setTimeout(() => iniciarWebSocketTicker(true), 1500);
   }
 }
 
@@ -2359,13 +2337,9 @@ setInterval(() => {
       if (!candle || !candle.ts) continue;
 
     
-      const expirado = agora - candle.ts > 180_000;
-      const aindaNeutro = candle.exp === 50 && candle.volRel === 1;
-      if (expirado && aindaNeutro) {
-        const cell = document.querySelector(`#row-${sym} .col-candle-${tf}`);
-       
-        if (cell) cell.innerHTML = "";
-        delete frames[tf]; 
+      const expirado = agora - candle.ts > 15 * 60_000;
+      if (expirado) {
+      continue;
       }
     }
   }
@@ -2436,13 +2410,13 @@ setInterval(() => {
         <td class="col-exp-1h"></td>
         <td class="col-exp-4h"></td>
         <td class="col-exp-1d"></td>
-        <td class="col-candle-1m"></td>
-        <td class="col-candle-5m"></td>
-        <td class="col-candle-15m"></td>
-        <td class="col-candle-30m"></td>
-        <td class="col-candle-1h"></td>
-        <td class="col-candle-4h"></td>
-        <td class="col-candle-1d"></td>
+        <td id="candle-1m-${symbol}" class="col-candle-1m"></td>
+        <td id="candle-5m-${symbol}" class="col-candle-5m"></td>
+        <td id="candle-15m-${symbol}" class="col-candle-15m"></td>
+        <td id="candle-30m-${symbol}" class="col-candle-30m"></td>
+        <td id="candle-1h-${symbol}" class="col-candle-1h"></td>
+        <td id="candle-4h-${symbol}" class="col-candle-4h"></td>
+        <td id="candle-1d-${symbol}" class="col-candle-1d"></td>
         <td class="col-eventos obs-cell"></td>
       `;
       painelBody.appendChild(row);
@@ -2560,7 +2534,10 @@ setInterval(() => {
       }
     }
 
-   
+    row.dataset.oi5m = String(scoreData.oiData?.var5m ?? 0);
+    row.dataset.oi15m = String(scoreData.oiData?.var15m ?? 0);
+    row.dataset.oi1h = String(scoreData.oiData?.var1h ?? 0);
+    
     const rsiVals=[
       scoreData.rsi?.rsi1m, scoreData.rsi?.rsi5m, scoreData.rsi?.rsi15m,
       scoreData.rsi?.rsi30m, scoreData.rsi?.rsi1h, scoreData.rsi?.rsi4h, scoreData.rsi?.rsi1d
@@ -3013,7 +2990,7 @@ window.addEventListener("beforeunload", () => {
 
   const monitor = document.createElement("div");
   monitor.style.position = "fixed";
-  monitor.style.top = "4px";
+  monitor.style.top = "10px";
   monitor.style.right = "10px";
   monitor.style.background = "rgba(15,15,15,0.85)";
   monitor.style.color = "#00ffb7";
@@ -3363,14 +3340,6 @@ function epsilonAbs(a, b) {
 
 document.addEventListener("DOMContentLoaded", renderFeed);
 
-const btnLimparAlertas = document.createElement("button");
-btnLimparAlertas.id = "btn-limpar-alertas";
-btnLimparAlertas.style.marginLeft = "10px";
-btnLimparAlertas.style.padding = "5px 10px";
-btnLimparAlertas.style.cursor = "pointer";
-
-
-
 const btnResetAlertas = document.createElement("button");
 btnResetAlertas.id = "btn-reset-alertas";
 btnResetAlertas.innerText = "Limpar Alertas";
@@ -3426,6 +3395,7 @@ document.getElementById("btn-reset-alertas").addEventListener("click", () => {
 
 
   </script>
+
 
 
 
