@@ -10,7 +10,7 @@ const fs = require("fs");
 const path = require("path");
 const zlib = require("zlib");
 const { WebSocketServer } = require("ws");
-const wss = new WebSocket.Server({ port: WS_PORT });
+
 
 
 
@@ -2834,9 +2834,27 @@ function configurarListenersBinance(ws, lote, idx) {
   });
 }
 
-// =======================================================
-// 📡 Inicia conexões WS Binance em lotes com controle adaptativo de delay
-// =======================================================
+
+
+
+
+// ===============================[ 22) START SERVER ]===============================
+const server = app.listen(PORT, () => {
+  console.log(`✅ Server online:${PORT}`, new Date().toLocaleTimeString());
+});
+
+const wss = new WebSocketServer({ server, path: "/ws" });
+
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "Painel uXe Crypto.html"));
+});
+
+inicializarServer();
+
+
+
+// ===============================[ 23 ) Inicia conexões WS Binance ]=================================
+ 
 function iniciarWsBinanceLotes(symbols) {
   if (!symbols?.length) return;
 
@@ -3064,22 +3082,6 @@ wss.on("connection", (ws) => {
 
 
 let recomputeTimer = null;
-
-
-
-// ===============================[ 22) START SERVER ]===============================
-const server = app.listen(PORT, () => {
-  console.log(`✅ Server online:${PORT}`, new Date().toLocaleTimeString());
-});
-
-const wss = new WebSocketServer({ server, path: "/ws" });
-
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "Painel uXe Crypto.html"));
-});
-
-inicializarServer();
-
 
 
 
