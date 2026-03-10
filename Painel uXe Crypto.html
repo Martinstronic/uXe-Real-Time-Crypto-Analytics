@@ -1924,7 +1924,7 @@ let retryCount = 0;
 function conectarWSServidor() {
   const url = location.hostname.includes("localhost")
     ? "ws://localhost:3001"
-    : "wss://phantomcryptoradar.onrender.com:3001";
+    : "wss://uxe-crypto-analytics.onrender.com:3001";
 
   wsServer = new WebSocket(url);
 
@@ -3426,5 +3426,6 @@ document.getElementById("btn-reset-alertas").addEventListener("click", () => {
 
 
   </script>
+
 
 
