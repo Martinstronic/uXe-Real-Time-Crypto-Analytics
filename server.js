@@ -9,7 +9,8 @@ const cors = require("cors");
 const fs = require("fs");
 const path = require("path");
 const zlib = require("zlib");
-const { WebSocketServer } = require("ws");
+const WS = require("ws");
+const { WebSocketServer } = WS;
 const PORT = Number(process.env.PORT) || 3000;
 
 
@@ -2917,7 +2918,7 @@ function iniciarWsBinanceLotes(symbols) {
       );
 
       try {
-       const ws = new WebSocket(url);
+       const ws = new WS(url);
 
     
       configurarListenersBinance(ws, lote, idx);
@@ -3088,6 +3089,7 @@ wss.on("connection", (ws) => {
 
 
 let recomputeTimer = null;
+
 
 
 
