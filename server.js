@@ -1613,6 +1613,11 @@ async function obterTopAtivosRadar(limitTotal = MAX_ATIVOS_RADAR) {
  
   const extras =[];
 
+    const final = Array.from(new Set([
+  ...ATIVOS_PRIORITARIOS,
+  ...topVolume,
+  ...extras.filter(Boolean),
+  ...ATIVOS_DESEJADOS
  
   const stickies = getStickySymbols();
   for (const s of stickies) {
@@ -1628,7 +1633,6 @@ async function obterTopAtivosRadar(limitTotal = MAX_ATIVOS_RADAR) {
   const prioritarios = limitado.slice(0, metade);
   const secundarios = limitado.slice(metade);
 
-  
 
   
  // setTimeout(() => recomputeStreams(), 5_000);
@@ -1643,15 +1647,15 @@ async function atualizarTopRadar() {
     cacheTopRadar = { ts: Date.now(), dados };
 
    
-    for (const s of dados.prioritarios) enqueueRSI(s, "pri");
-    for (const s of dados.secundarios) enqueueRSI(s, "sec");
+    for (const s of dados.prioritarios) enqueueRSI(s, "mid"); //pri
+    for (const s of dados.secundarios) enqueueRSI(s, "low"); //sec
 
     console.log("✅ TopRadar atualizado:",
       "pri:", dados.prioritarios.length,
       "sec:", dados.secundarios.length
     );
 
-    iniciarWSLiquidados();
+   // iniciarWSLiquidados();
   } catch (err) {
     console.error("❌ Falha ao atualizar TopRadar:", err.message);
   }
@@ -2667,7 +2671,7 @@ function iniciarWSLiquidados() {
   wsLiquidados.on("close", () => {
     console.log("⚠️ WS forceOrder fechado, tentando reconectar em 15s");
     wsLiquidadosConectando = false;
-    setTimeout(() => iniciarWSLiquidados(), 15000);
+ //   setTimeout(() => iniciarWSLiquidados(), 15000);
   });
 
   wsLiquidados.on("error", err => {
@@ -3155,5 +3159,6 @@ app.listen(PORT, () => {
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "Painel uXe Crypto.html"));
 });
+
 
 
