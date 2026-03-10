@@ -1607,8 +1607,8 @@ async function obterTopAtivosRadar(limitTotal = MAX_ATIVOS_RADAR) {
   const topVolume = candidatos.slice(0, LIMIT_PRIORITARIOS).map(d => d.symbol);
   top100Volume = new Set(candidatos.slice(0, 10).map(d => d.symbol));
   top50Volume = new Set(candidatos.slice(0, 5).map(d => d.symbol)); 
-  console.log(`📊 Top100 atualizado (${top100Volume.size} símbolos).`);
-  console.log(`💎 Top50 volume dinâmico atualizado (${top50Volume.size} símbolos).`);
+  console.log(`📊 Top5 atualizado (${top100Volume.size} símbolos).`);
+  console.log(`💎 Top10 volume dinâmico atualizado (${top50Volume.size} símbolos).`);
 
  
   const extras =[];
@@ -1618,6 +1618,8 @@ async function obterTopAtivosRadar(limitTotal = MAX_ATIVOS_RADAR) {
   ...topVolume,
   ...extras.filter(Boolean),
   ...ATIVOS_DESEJADOS
+
+      ]));
  
   const stickies = getStickySymbols();
   for (const s of stickies) {
@@ -3159,6 +3161,7 @@ app.listen(PORT, () => {
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "Painel uXe Crypto.html"));
 });
+
 
 
 
