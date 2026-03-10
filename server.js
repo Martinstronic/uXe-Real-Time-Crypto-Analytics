@@ -140,7 +140,9 @@ app.post("/alertas-preco", express.json(), (req, res) => {
 
 /* =========================[ AXIOS + USER-AGENT + PAG INICIAL ]========================== */
 const api = axios.create({
-  headers: { "User-Agent": "CockpitTraderBot/1.0" },
+  headers: {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+  },
   timeout: 25_000
 });
 
@@ -323,7 +325,7 @@ async function fetchKlinesCached(symbol, interval, prefer = "futures", limit = 2
   }
 
   try {
-    const data = await fetchKlinesWithFallback(symbol, interval, limit, prefer);
+    const data = await fetchKlinesWithFallback(symbol, interval, prefer);
     if (data) {
       klinesCache.set(key, { ts: now, data });
     }
@@ -1589,55 +1591,35 @@ const ATIVOS_PRIORITARIOS = [ "BTCUSDT", "ETHUSDT"];
 
 
 
-// =========================[ RADAR DE ATIVOS OTIMIZADO ]=========================
-async function obterTopAtivosRadar(limitTotal = MAX_ATIVOS_RADAR) {
-  const { data } = await api.get("https://api.binance.com/api/v3/ticker/24hr");
+// =========================[ RADAR DE ATIVOS ]=========================
+sync function obterTopAtivosRadar(limitTotal = 50) {
+  const { data } = await api.get(`${BINANCE_FUTURES}/ticker/24hr`);
 
- 
-  let candidatos = data
+  const candidatos = data
     .filter(d =>
       d.symbol.endsWith("USDT") &&
       !["BUSD", "TUSD", "USDC", "FDUSD", "USD1", "XUSD"].some(s => d.symbol.includes(s)) &&
       !ATIVOS_EXCLUIDOS.includes(d.symbol)
     )
     .filter(d => validFuturesSymbols.has(d.symbol))
-    .sort((a, b) => parseFloat(b.quoteVolume) - parseFloat(a.quoteVolume));
+    .sort((a, b) => parseFloat(b.quoteVolume || 0) - parseFloat(a.quoteVolume || 0));
 
- 
-  const topVolume = candidatos.slice(0, LIMIT_PRIORITARIOS).map(d => d.symbol);
-  top100Volume = new Set(candidatos.slice(0, 10).map(d => d.symbol));
-  top50Volume = new Set(candidatos.slice(0, 5).map(d => d.symbol)); 
-  console.log(`📊 Top10 atualizado (${top100Volume.size} símbolos).`);
-  console.log(`💎 Top5 volume dinâmico atualizado (${top50Volume.size} símbolos).`);
+  const baseTop = candidatos.slice(0, limitTotal).map(d => d.symbol);
 
- 
-  const extras =[];
+  const final = Array.from(new Set([
+    ...ATIVOS_PRIORITARIOS,
+    ...baseTop,
+    ...ATIVOS_DESEJADOS
+  ])).slice(0, limitTotal);
 
-    const final = Array.from(new Set([
-  ...ATIVOS_PRIORITARIOS,
-  ...topVolume,
-  ...extras.filter(Boolean),
-  ...ATIVOS_DESEJADOS
+  const metade = Math.ceil(final.length / 2);
+  const prioritarios = final.slice(0, metade);
+  const secundarios = final.slice(metade);
 
-      ]));
- 
-  const stickies = getStickySymbols();
-  for (const s of stickies) {
-    if (!final.includes(s)) {
-      final.push(s);
-      console.log(`📌 Sticky re-aplicado no radar: ${s}`);
-    }
-  }
+  top100Volume = new Set(final.slice(0, Math.min(10, final.length)));
+  top50Volume = new Set(final.slice(0, Math.min(5, final.length)));
 
-  
-  const limitado = final.slice(0, limitTotal);
-  const metade = Math.ceil(limitado.length / 2);
-  const prioritarios = limitado.slice(0, metade);
-  const secundarios = limitado.slice(metade);
-
-
-  
- // setTimeout(() => recomputeStreams(), 5_000);
+  console.log(`📊 Radar atualizado com ${final.length} símbolos`);
 
   return { prioritarios, secundarios };
 }
@@ -1645,45 +1627,44 @@ async function obterTopAtivosRadar(limitTotal = MAX_ATIVOS_RADAR) {
 
 async function atualizarTopRadar() {
   try {
-    const dados = await obterTopAtivosRadar(MAX_ATIVOS_RADAR);
+    const dados = await obterTopAtivosRadar(50);
     cacheTopRadar = { ts: Date.now(), dados };
 
-   
-    for (const s of dados.prioritarios) enqueueRSI(s, "mid"); //pri
-    for (const s of dados.secundarios) enqueueRSI(s, "low"); //sec
+    for (const s of dados.prioritarios) enqueueRSI(s, "mid");
+    for (const s of dados.secundarios) enqueueRSI(s, "low");
 
     console.log("✅ TopRadar atualizado:",
       "pri:", dados.prioritarios.length,
       "sec:", dados.secundarios.length
     );
-
-   // iniciarWSLiquidados();
   } catch (err) {
     console.error("❌ Falha ao atualizar TopRadar:", err.message);
+    // mantém o último cache válido
   }
 }
-
 
 async function inicializarServer() {
   await carregarContratosFuturos();
   console.log("✅ Contratos futuros carregados, iniciando TopRadar...");
 
   await atualizarTopRadar();
-  setInterval(atualizarTopRadar, 60_000);
 
-  setTimeout(() => {
-    iniciarCronsOi();
-  }, 120_000);
+  // refresh do top 50 a cada 2 horas
+  setInterval(async () => {
+    console.log("🔄 Refresh programado do TopRadar (2h)");
+    await atualizarTopRadar();
+  }, 2 * 60 * 60 * 1000);
 
+  // inicia WS Binance somente com os símbolos já em cache
   setTimeout(() => {
     try {
-      const { prioritarios, secundarios } = cacheTopRadar.dados || {};
+      const { prioritarios = [], secundarios = [] } = cacheTopRadar.dados || {};
       const symbols = [...new Set([...prioritarios, ...secundarios])].filter(s =>
         validFuturesSymbols.has(s)
       );
 
       if (!symbols.length) {
-        console.error("❌ Nenhum símbolo válido encontrado no radar para iniciar WS!");
+        console.warn("⚠️ Nenhum símbolo válido encontrado no radar para iniciar WS!");
         return;
       }
 
@@ -1692,9 +1673,8 @@ async function inicializarServer() {
     } catch (err) {
       console.error("❌ Erro ao inicializar WS Binance:", err.message);
     }
-  }, 30_000);
+  }, 20_000);
 }
-
 // =========================[ RADAR OI EM LOTES COM AUTO-THROTTLE ]=========================
 let radarIndexPri = 0;
 let radarIndexSec = 0;
@@ -3064,6 +3044,7 @@ app.get("/", (req, res) => {
 });
 
 inicializarServer();
+
 
 
 
