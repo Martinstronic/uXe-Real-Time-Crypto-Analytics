@@ -193,7 +193,7 @@ function toPct(v) {
 
 // =========================[ CONFIGURAÇÕES DE RADAR ]=========================
 const MAX_ATIVOS_RADAR = 50;  
-const LIMIT_PRIORITARIOS = 40; 
+const LIMIT_PRIORITARIOS = 5; 
 const LIMIT_SECUNDARIOS = MAX_ATIVOS_RADAR - LIMIT_PRIORITARIOS;
 const STICKY_DURATION_MINUTES = 30 
 const stickySymbols = new Map();
@@ -984,15 +984,15 @@ async function iniciarCronsOi() {
       return;
     }
 
-   const top50 = allSymbols.slice(0, 40);
-    const top100 = allSymbols.slice(40, 45);
-    const top200 = allSymbols.slice(45, 50);
-    const rest = allSymbols.slice(200);
+   const top50 = allSymbols.slice(0, 10);
+    const top100 = allSymbols.slice(10, 20);
+    const top200 = allSymbols.slice(20, 40);
+    const rest = allSymbols.slice(40);
 
 
-criarCron(top50, 15_000, "TOP50");    
-criarCron(top100, 20_000, "51-100");   
-criarCron(top200, 45_000, "101-200");  
+criarCron(top50, 25_000, "TOP50");    
+criarCron(top100, 40_000, "51-100");   
+criarCron(top200, 65_000, "101-200");  
 criarCron(rest, 90_000, "201+");      
 
 
@@ -1002,7 +1002,7 @@ criarCron(rest, 90_000, "201+");
 }
 
 
-iniciarCronsOi();
+
 
 
 // =====================[ FETCH OI BINANCE + NOW ]======================
@@ -1162,7 +1162,8 @@ app.post("/oi-lote", async (req, res) => {
 
   try {
     const results = {};
-    await Promise.all(symbols.map(async (symbol) => {
+
+    for (const symbol of symbols) {
       try {
         const cached = getOiFromCache(symbol);
         if (cached) {
@@ -1172,10 +1173,22 @@ app.post("/oi-lote", async (req, res) => {
           setOiCache(symbol, data);
           results[symbol] = data;
         }
+        await new Promise(r => setTimeout(r, 250));
       } catch {
-        results[symbol] = { symbol, sumOpenInterest: 0, oiUsd: 0, hist: [], hist1h: [], var1m: 0, var3m: 0, var5m: 0, var15m: 0, var1h: 0 };
+        results[symbol] = {
+          symbol,
+          sumOpenInterest: 0,
+          oiUsd: 0,
+          hist: [],
+          hist1h: [],
+          var1m: 0,
+          var3m: 0,
+          var5m: 0,
+          var15m: 0,
+          var1h: 0
+        };
       }
-    }));
+    }
 
     res.json(results);
   } catch (err) {
@@ -1183,8 +1196,6 @@ app.post("/oi-lote", async (req, res) => {
     res.status(500).json({ error: "Falha ao processar lote de OI" });
   }
 });
-
-
 
 
 
@@ -1523,10 +1534,10 @@ async function carregarContratosFuturos() {
     console.error("❌ Falha ao carregar contratos futuros:", err.message);
   }
 }
-setInterval(carregarContratosFuturos, 60 * 60 * 1000);
 
 
-// =====================[ GET OI COM VARIAÇÃO (Cacheado) ]======================
+
+// =====================[ GET OI COM VARIAÇÃO ]======================
 async function getOiComVariação(symbol) {
   if (!validFuturesSymbols.has(symbol)) {
     return { oi: 0, var5m: 0 }; 
@@ -1544,7 +1555,7 @@ async function getOiComVariação(symbol) {
       return { oi: oiAtual, oiUsd: cached.oiUsd, var5m };
     }
 
-    // 🔹 se não tiver cache fresco, busca da Binance (rápido)
+
     const url = `https://fapi.binance.com/fapi/v1/openInterest?symbol=${symbol}`;
     const data = await fetchWithBackoff(url);
     if (!data?.openInterest) return { oi: 0, var5m: 0 };
@@ -1594,36 +1605,13 @@ async function obterTopAtivosRadar(limitTotal = MAX_ATIVOS_RADAR) {
 
  
   const topVolume = candidatos.slice(0, LIMIT_PRIORITARIOS).map(d => d.symbol);
-  top100Volume = new Set(candidatos.slice(0, 100).map(d => d.symbol));
-  top50Volume = new Set(candidatos.slice(0, 50).map(d => d.symbol)); 
+  top100Volume = new Set(candidatos.slice(0, 10).map(d => d.symbol));
+  top50Volume = new Set(candidatos.slice(0, 5).map(d => d.symbol)); 
   console.log(`📊 Top100 atualizado (${top100Volume.size} símbolos).`);
   console.log(`💎 Top50 volume dinâmico atualizado (${top50Volume.size} símbolos).`);
 
  
-  const extras = await processarEmLotes(
-    candidatos.slice(100),
-    10,
-    521,
-    async (ativo) => {
-      try {
-        const { var5m } = await getOiComVariação(ativo.symbol);
-        if (Math.abs(var5m) >= 3) {
-          promoteSymbol(ativo.symbol, STICKY_DURATION_MINUTES);
-          console.log(`📌 Sticky criado: ${ativo.symbol} (detecção brusca OI, var5m=${var5m.toFixed(2)}%)`);
-          return ativo.symbol;
-        }
-      } catch { /* ignora erros */ }
-      return null;
-    }
-  );
-
-  
-  const final = Array.from(new Set([
-    ...ATIVOS_PRIORITARIOS,
-    ...topVolume,
-    ...extras.filter(Boolean),
-    ...ATIVOS_DESEJADOS
-  ]));
+  const extras =[];
 
  
   const stickies = getStickySymbols();
@@ -1676,9 +1664,12 @@ async function inicializarServer() {
 
   
   await atualizarTopRadar();
+  setInterval(atualizarTopRadar, 60_000);
 
+  setTimeout(() => {
+    iniciarCronsOi();
+  }, 120_000);
   
-  setInterval(atualizarTopRadar, 60_000); 
 }
 
 // =========================[ RADAR OI EM LOTES COM AUTO-THROTTLE ]=========================
@@ -3160,4 +3151,5 @@ function closeStream(symbol) {
 app.listen(PORT, () => {
   console.log(`✅ Server online: http://localhost:${PORT}`, new Date().toLocaleTimeString());
 });
+
 
