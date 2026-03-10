@@ -205,7 +205,7 @@ function ativarStreamsExpandido(symbol, minutos = 30) {
   const expira = Date.now() + minutos * 60 * 1000;
   symbolsExpandido.set(symbol, expira);
   console.log(`⚡ Streams expandidos ativados para ${symbol} até ${new Date(expira).toLocaleTimeString()}`);
-  recomputeStreams(); 
+  //recomputeStreams(); 
 }
 
 function isStreamExpandido(symbol) {
@@ -1929,7 +1929,7 @@ async function radarOIProcessar(symbol, oiData) {
     if (nivel >= 3) {
       ativarStreamsExpandido(symbol, 40); 
       console.log(`📌 Stream expandido ativado p/ ${symbol} (OI ${maiorVar.toFixed(2)}%)`);
-       setTimeout(() => recomputeStreams(), 5000);
+       //setTimeout(() => recomputeStreams(), 5000);
     }
 
     
@@ -2967,11 +2967,11 @@ setInterval(() => {
     obterTopAtivosRadar()
       .then(({ prioritarios }) => {
         console.log(`🔁 Top volume atualizado (${prioritarios.length} símbolos)`);
-        recomputeStreams(); 
+        //recomputeStreams(); 
       })
       .catch(err => {
         console.warn("⚠️ Falha ao atualizar top volume antes do recompute:", err.message);
-        recomputeStreams();
+     //   recomputeStreams();
       });
 
   } catch (err) {
@@ -3048,7 +3048,7 @@ function subscribeClient(ws, symbols = []) {
     if (!symbolSubscribers.has(sym)) symbolSubscribers.set(sym, new Set());
     symbolSubscribers.get(sym).add(ws);
   });
-  recomputeStreams();
+ // recomputeStreams();
 }
 
 function unsubscribeClient(ws) {
@@ -3155,4 +3155,5 @@ app.listen(PORT, () => {
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "Painel uXe Crypto.html"));
 });
+
 
