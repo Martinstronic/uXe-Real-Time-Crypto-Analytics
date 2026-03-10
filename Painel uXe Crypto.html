@@ -2051,7 +2051,7 @@ function conectarWSServidor() {
             close: Number(c.close),
             vol: Number(c.vol ?? 0),
             exp: Number(c.exp),
-            volRel: Number(c.volRel)
+            volRel: Number(c.volRel),
             ts: Number(c.ts ?? Date.now())
           }))
           .slice(-30);
@@ -3395,6 +3395,7 @@ document.getElementById("btn-reset-alertas").addEventListener("click", () => {
 
 
   </script>
+
 
 
 
