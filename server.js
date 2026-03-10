@@ -254,7 +254,12 @@ let cacheTopRadar = { ts: 0, dados: { prioritarios: [], secundarios: [] } };
 
 async function fetchJSON(url, fallback = null) {
   try {
-    const res = await axios.get(url);
+    const res = await axios.get(url, {
+      timeout: 20_000,
+      headers: {
+        "User-Agent": "Mozilla/5.0"
+      }
+    });
     return res.data;
   } catch (err) {
     console.error(`❌ Erro em fetchJSON ${url}:`, err.message);
@@ -265,7 +270,7 @@ async function fetchJSON(url, fallback = null) {
 const marketSupportCache = new Map(); // symbol -> { futures: true/false, spot: true/false }
 const invalidSymbols = new Set();
 
-async function fetchKlinesWithFallback(symbol, interval, preferredMarket = "futures", limit = 120) {
+async function fetchKlinesWithFallback(symbol, interval, preferredMarket = "futures", limit = 60) {
   if (invalidSymbols.has(symbol)) return [];
 
   const known = marketSupportCache.get(symbol) || { futures: true, spot: true };
@@ -273,12 +278,28 @@ async function fetchKlinesWithFallback(symbol, interval, preferredMarket = "futu
   const attempts =
     preferredMarket === "futures"
       ? [
-          { name: "futures", enabled: known.futures, url: `${BINANCE_FUTURES}/klines?symbol=${symbol}&interval=${interval}&limit=${limit}` },
-          { name: "spot", enabled: known.spot, url: `${BINANCE_SPOT}/klines?symbol=${symbol}&interval=${interval}&limit=${limit}` }
+          {
+            name: "futures",
+            enabled: known.futures,
+            url: `${BINANCE_FUTURES}/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`
+          },
+          {
+            name: "spot",
+            enabled: known.spot,
+            url: `${BINANCE_SPOT}/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`
+          }
         ]
       : [
-          { name: "spot", enabled: known.spot, url: `${BINANCE_SPOT}/klines?symbol=${symbol}&interval=${interval}&limit=${limit}` },
-          { name: "futures", enabled: known.futures, url: `${BINANCE_FUTURES}/klines?symbol=${symbol}&interval=${interval}&limit=${limit}` }
+          {
+            name: "spot",
+            enabled: known.spot,
+            url: `${BINANCE_SPOT}/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`
+          },
+          {
+            name: "futures",
+            enabled: known.futures,
+            url: `${BINANCE_FUTURES}/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`
+          }
         ];
 
   for (const attempt of attempts) {
@@ -294,13 +315,14 @@ async function fetchKlinesWithFallback(symbol, interval, preferredMarket = "futu
       if (!response.ok) {
         const status = response.status;
 
-        if (status === 400) {
+        if (status === 400 || status === 418) {
           const cur = marketSupportCache.get(symbol) || { futures: true, spot: true };
           cur[attempt.name] = false;
           marketSupportCache.set(symbol, cur);
 
           if (!cur.futures && !cur.spot) {
             invalidSymbols.add(symbol);
+            console.warn(`🚫 Símbolo invalidado para klines: ${symbol}`);
           }
         }
 
@@ -605,11 +627,7 @@ return { value: +(100 - 100 / (1 + rs)).toFixed(2), avgGain, avgLoss, lastClose:
 
 
 async function fetchKlinesPrefer(symbol, tf, prioridade) {
-  let kl = await fetchKlinesWithFallback(symbol, tf, "futures", 120);
-  if (!kl || kl.length === 0) {
-    kl = await fetchKlinesWithFallback(symbol, tf, "spot", 120);
-  }
-  return kl;
+  return await fetchKlinesWithFallback(symbol, tf, "futures", 60);
 }
 
 // =======================[ Telegram ]=======================
@@ -2079,9 +2097,12 @@ app.get("/top-ativos", async (req, res) => {
 });
 
 /* ==========================[ 18) KLINES (cache 15s) ]======================== */
+/* ==========================[ 18) KLINES (cache 15s) ]======================== */
 app.get("/klines/:symbol/:interval", async (req, res) => {
   const { symbol, interval } = req.params;
-  const market = req.query.market || "spot";
+
+  // Agora o padrão é futures
+  const preferredMarket = req.query.market || "futures";
 
   if (!simboloValido(symbol)) {
     return res.status(400).json({ error: "Símbolo inválido", symbol });
@@ -2089,22 +2110,16 @@ app.get("/klines/:symbol/:interval", async (req, res) => {
 
   try {
     const klines = await getWithCache(
-      `k-${market}-${symbol}-${interval}`,
-      15_000, // TTL: 15s
+      `k-${preferredMarket}-${symbol}-${interval}`,
+      15_000,
       async () => {
-        const baseUrl =
-          market === "futures"
-            ? "https://fapi.binance.com/fapi/v1/klines"
-            : "https://api.binance.com/api/v3/klines";
-
-        const url = `${baseUrl}?symbol=${symbol}&interval=${interval}&limit=2`;
-        return await fetchJSON(url);
+        return await fetchKlinesWithFallback(symbol, interval, preferredMarket, 2);
       }
     );
 
-    res.json(klines);
+    res.json(Array.isArray(klines) ? klines : []);
   } catch (err) {
-    console.error(`❌ /klines ${symbol} ${interval} ${market}:`, err.message);
+    console.error(`❌ /klines ${symbol} ${interval} ${preferredMarket}:`, err.message);
     res.status(500).json({ error: "Erro ao buscar klines", details: err.message });
   }
 });
@@ -3069,6 +3084,7 @@ app.get("/", (req, res) => {
 });
 
 inicializarServer();
+
 
 
 
