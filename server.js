@@ -9,14 +9,13 @@ const cors = require("cors");
 const fs = require("fs");
 const path = require("path");
 const zlib = require("zlib");
-const WebSocket = require("ws");
+const { WebSocketServer } = require("ws");
+const wss = new WebSocket.Server({ port: WS_PORT });
 
 
 
+const cacheLiquidados = {}; 
 
-const cacheLiquidados = {}; // { SYMBOL: { longs: number, shorts: number, last5m: number|null } }
-
-// { SYMBOL: { oiFlowScore: number } }
 let cacheLiquidacoes = {};
 
 const app = express();
@@ -26,8 +25,7 @@ app.use(express.json());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-const PORT = Number(process.env.PORT) || 3000;
-const WS_PORT = PORT + 1;
+
 
 app.use((req, res, next) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
@@ -2096,7 +2094,7 @@ app.get("/top-ativos", async (req, res) => {
   }
 });
 
-/* ==========================[ 18) KLINES (cache 15s) ]======================== */
+
 /* ==========================[ 18) KLINES (cache 15s) ]======================== */
 app.get("/klines/:symbol/:interval", async (req, res) => {
   const { symbol, interval } = req.params;
@@ -2724,12 +2722,7 @@ function iniciarWSLiquidados() {
 
 // ===============================[ 19) INICIALIZA WS ]===============================
 
-
-
 const { WebSocketServer } = require("ws");
-
-
-const wss = new WebSocket.Server({ port: WS_PORT });
 const clientesAtivos = new Set();         
 const symbolSubscribers = new Map();      
 const binanceStreams = new Map();        
@@ -3075,15 +3068,18 @@ let recomputeTimer = null;
 
 
 // ===============================[ 22) START SERVER ]===============================
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`✅ Server online:${PORT}`, new Date().toLocaleTimeString());
 });
+
+const wss = new WebSocketServer({ server, path: "/ws" });
 
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "Painel uXe Crypto.html"));
 });
 
 inicializarServer();
+
 
 
 
