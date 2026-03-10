@@ -2722,7 +2722,7 @@ function iniciarWSLiquidados() {
 
 // ===============================[ 19) INICIALIZA WS ]===============================
 
-const { WebSocketServer } = require("ws");
+
 const clientesAtivos = new Set();         
 const symbolSubscribers = new Map();      
 const binanceStreams = new Map();        
@@ -3079,6 +3079,7 @@ app.get("/", (req, res) => {
 });
 
 inicializarServer();
+
 
 
 
