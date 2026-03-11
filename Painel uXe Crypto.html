@@ -694,7 +694,7 @@ button.filtro-ativo {
     <option value="oi-var-15m">Variação % OI 15m</option>
     <option value="oi-var-1h">Variação % OI 1h</option>
     <option value="volume-5m">Volume 5m</option>
-    <option value="volume-15m">Volume 15m</option>
+    <option value="volume-1h">Volume 1h</option>
     <option value="volume-1d">Volume 1d</option>
  
   </select>
@@ -1330,8 +1330,8 @@ async function aplicarOrdenacaoLista(criterio) {
     } else if (criterio === "volume-5m") {
       val = Number(linha.dataset.vol5m ?? Number.NEGATIVE_INFINITY);
 
-    } else if (criterio === "volume-15m") {
-      val = Number(linha.dataset.vol15m ?? Number.NEGATIVE_INFINITY);
+    } else if (criterio === "volume-1h") {
+      val = Number(linha.dataset.vol1h ?? Number.NEGATIVE_INFINITY);
 
     } else if (criterio === "volume-1d") {
       val = Number(linha.dataset.vol1d ?? Number.NEGATIVE_INFINITY);
@@ -1340,9 +1340,19 @@ async function aplicarOrdenacaoLista(criterio) {
     return { sym, linha, val };
   });
 
+  const ehOrdenacaoPercentualOI =
+    criterio === "oi-var-5m" ||
+    criterio === "oi-var-15m" ||
+    criterio === "oi-var-1h";
+
   valores.sort((a, b) => {
     const av = Number.isFinite(a.val) ? a.val : Number.NEGATIVE_INFINITY;
     const bv = Number.isFinite(b.val) ? b.val : Number.NEGATIVE_INFINITY;
+
+    if (ehOrdenacaoPercentualOI) {
+      return Math.abs(bv) - Math.abs(av);
+    }
+
     return bv - av;
   });
 
@@ -1806,15 +1816,15 @@ async function atualizarCartoesBTC() {
     }).join(" ");
 
     // --- Candles / Volume BTC ---
-    let candles = Array.isArray(window.candlesHist?.[symbol])
+        let candles = Array.isArray(window.candlesHist?.[symbol])
       ? window.candlesHist[symbol].slice(-10)
       : [];
-
+    
     if (candles.length < 10) {
       const fallbackCandles = await fetch(`${API_BASE}/klines/${symbol}/5m?limit=10&market=futures`)
         .then(r => r.json())
         .catch(() => []);
-
+    
       if (Array.isArray(fallbackCandles) && fallbackCandles.length) {
         candles = fallbackCandles.slice(-10).map(c => ({
           open: Number(c[1]),
@@ -1826,17 +1836,15 @@ async function atualizarCartoesBTC() {
         }));
       }
     }
+    
+    
+    const volCard = Number(scoreData?.volume?.vol5m?.volume ?? 0);
+    atualizarComAnimacao(
+      document.getElementById("btc-trades"),
+      volCard > 0 ? formatarNumeroUSD(volCard) : "n/d"
+    );
 
-    if (candles.length) {
-      const ultimo = candles[candles.length - 1];
-      const vol = Number(ultimo.vol ?? 0);
-      atualizarComAnimacao(
-        document.getElementById("btc-trades"),
-        vol > 0 ? formatarNumeroUSD(vol) : "n/d"
-      );
-    }
-
-    const bars = candles.map((c, i, arr) => {
+      const bars = candles.map((c, i, arr) => {
       const close = Number(c.close ?? 0);
       const prevClose = i > 0 ? Number(arr[i - 1].close ?? close) : close;
       const cls = close >= prevClose ? "up" : "down";
@@ -2563,6 +2571,7 @@ setInterval(() => {
     row.dataset.oiUsd = String(scoreData.oiData?.oiUsd ?? 0);
     row.dataset.vol5m = String(scoreData.volume?.vol5m?.volume ?? 0);
     row.dataset.vol15m = String(scoreData.volume?.vol15m?.volume ?? 0);
+    row.dataset.vol1h = String(scoreData.volume?.vol1h?.volume ?? 0);
     row.dataset.vol1d = String(scoreData.volume?.vol1d?.volume ?? 0);
     
     const rsiVals=[
@@ -3330,6 +3339,7 @@ document.getElementById("btn-reset-alertas").addEventListener("click", () => {
 
 
   </script>
+
 
 
 
