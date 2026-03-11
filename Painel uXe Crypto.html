@@ -646,31 +646,42 @@ button.filtro-ativo {
   </div>
 
      <!-- Legenda -->
-  <div id="legenda-tabela" style="font-size:14px; color:#888; justify-content: center;">
-    📌 <strong>Legenda:</strong> 💹 Volume 5m Spike 30% | 🆘 Stop Hunt 5m |  ⚖️ Funding Extremado | 🚀 Long | 🔻 Short | 💥🟦1h": "Capitulação Long 1h | 💥🟥1h": "Capitulação Short 1h 
-        
-  </div>
+<!-- Legenda -->
+<div id="legenda-tabela" style="font-size:14px; color:#888; justify-content:center;">
+  📌 <strong>Legenda:</strong> 💹 Volume 5m Spike 30% | 🆘 Stop Hunt 5m | ⚖️ Funding Extremado | 🚀 Long | 🔻 Short | 💥🟦 1h = Capitulação Long 1h | 💥🟥 1h = Capitulação Short 1h
+</div>
 
-      <!-- Legenda -->
-  <div id="legenda-tabela2" style="font-size:14px; color:#888; justify-content: center;">
-    📊100 = Máxima Lateralização | 📊80-99 = Lateralização Forte | 📊50–79 = Lateralização Moderada | 📊20-49 = Lateralização Fraca | 🔄0-19 = Sem Lateralização
-    </div>
-    <div id="legenda-tabela3" style="font-size:14px; color:#888; justify-content: center;">
-    📈81–100 = Pressão Máxima Compra | 📈 60–80 = Pressão Forte Compra | 💱↔41–59 = Equilíbrio Compra x Venda | 📉21 - 40 = Pressão de Venda | 📉0 20 = Pressão Máxima Venda
-    </div>
-    <!-- Legenda   const labels = {
-      q1: "Q1 🟢 (Long + RSI alto)",
-      q2: "Q2 🔵 (Long + RSI ~ neutro)",
-      q3: "Q3 🟠 (Short + RSI alto)",
-      q4: "Q4 🔴 (Short + RSI baixo)",
-      q0: "Q0 ⚪ (Neutro)"
-    }; -->
+<div id="legenda-tabela2" style="font-size:14px; color:#888; justify-content:center; margin-top:4px;">
+  📊 100 = Máxima Lateralização | 📊 80–99 = Lateralização Forte | 📊 50–79 = Lateralização Moderada | 📊 20–49 = Lateralização Fraca | 🔄 0–19 = Sem Lateralização
+</div>
 
-  <!-- Instruções para alertas -->
-<div id="instrucoes-alerta" style="font-size:14px; color:#555; margin-top:5px; justify-content: center;">
-  📢 <strong>Como usar os alertas:</strong> Basta inserir o valor desejado no campo "Alerta" da tabela. 
+<div id="legenda-tabela3" style="font-size:14px; color:#888; justify-content:center; margin-top:4px;">
+  📈 81–100 = Pressão Máxima de Compra | 📈 60–80 = Pressão Forte de Compra | 💱↔ 41–59 = Equilíbrio Compra x Venda | 📉 21–40 = Pressão de Venda | 📉 0–20 = Pressão Máxima de Venda
+</div>
+
+<div id="legenda-candles" style="font-size:14px; color:#888; justify-content:center; margin-top:4px;">
+  🟦 <strong>Leitura dos candles:</strong>
+  <span style="color:#00FFCC;">■</span> Compra Extrema |
+  <span style="color:#00c59e;">■</span> Compra Muito Forte |
+  <span style="color:#019174;">■</span> Compra Forte |
+  <span style="color:#015c4a;">■</span> Compra Moderada |
+  <span style="color:#ff5252;">■</span> Venda Moderada |
+  <span style="color:#ff2929;">■</span> Venda Forte |
+  <span style="color:#ff7300;">■</span> Venda Muito Forte |
+  <span style="color:#FF1493;">■</span> Venda Extrema
+</div>
+
+<!-- Instruções para alertas -->
+<div id="instrucoes-alerta" style="font-size:14px; color:#555; margin-top:5px; justify-content:center;">
+  📢 <strong>Como usar os alertas:</strong> Basta inserir o valor desejado no campo "Alerta" da tabela.
   Para variação <strong>acima</strong>, digite apenas o valor numérico ou percentual (ex.: <code>123000</code> ou <code>5%</code>).
   Para variação <strong>abaixo</strong>, digite <code>&lt;123000</code> ou <code>&lt;5%</code>.
+</div>
+
+<div id="aviso-painel" style="font-size:13px; color:#666; margin-top:8px; text-align:center; line-height:1.5;">
+  ⚠️ <strong>Aviso:</strong> A coluna de eventos está em processo de evolução e pode passar por ajustes de lógica e interpretação.
+  Este painel possui caráter exclusivamente informativo, educacional e experimental, não constituindo consultoria financeira, recomendação de investimento ou indicação de compra e venda.
+  Toda decisão tomada com base nas informações exibidas é de inteira responsabilidade do usuário.
 </div>
 
  <div class="top-bar" style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap; margin-bottom: 10px; font-size: 14px; color: #888; justify-content: flex-start;">
@@ -1006,8 +1017,11 @@ let sinoSonoroAtivo = false;
 
 function toggleSom() {
   sinoSonoroAtivo = !sinoSonoroAtivo;
-  const sino = document.getElementById("icone-sino").title = "Ativar/desativar som dos alertas";
+
+  const sino = document.getElementById("icone-sino");
   if (!sino) return;
+
+  sino.title = "Ativar/desativar som dos alertas";
   sino.classList.toggle("som-ativo", sinoSonoroAtivo);
 }
 
@@ -1426,7 +1440,7 @@ document.querySelectorAll(".alerta-preco").forEach(input => {
   document.getElementById("modal-liquid").style.display = "none";
 }
 const modaliquido = document.getElementById("btn-fechar-modal");
-    if(modaliquido) modaliquido.onclick = () => fecharModal;
+    if(modaliquido) modaliquido.onclick = fecharModal;
 
 
 document.getElementById("modal-liquid").addEventListener("click", function(e) {
@@ -1756,8 +1770,13 @@ async function atualizarCartoesBTC() {
     document.getElementById("btc-fr").className = fr >= 0 ? "up" : "down";
 
     // --- Preço ---
-    const price = scoreData?.preco ?? 0;
-    atualizarComAnimacao(document.getElementById("btc-price"), `$${price}`);
+    const wsPrice = ultimoPrecoWS.get(symbol)?.preco;
+    const price = Number.isFinite(wsPrice) ? wsPrice : (scoreData?.preco ?? 0);
+    
+    atualizarComAnimacao(
+      document.getElementById("btc-price"),
+      Number.isFinite(price) && price > 0 ? `$${price.toFixed(2)}` : "n/d"
+    );
 
     // --- Variações ---
     const formatarVar = (v) => {
@@ -1793,28 +1812,32 @@ async function atualizarCartoesBTC() {
     }).join(" ");
 
     // --- Fechamento BTC 5m (Volume + últimos 10 candles) ---
-    const candles = await fetch(`${API_BASE}/klines/${symbol}/5m?limit=10&market=futures`)
-      .then(r => r.json())
-      .catch(() => []);
+    const candles = Array.isArray(window.candlesHist?.[symbol])
+          ? window.candlesHist[symbol].slice(-10)
+          : [];
+        
+        if (candles.length) {
+          const ultimo = candles[candles.length - 1];
+          const vol = Number(ultimo.vol ?? 0);
+          atualizarComAnimacao(
+            document.getElementById("btc-trades"),
+            vol > 0 ? formatarNumeroUSD(vol) : "n/d"
+          );
+        }
 
-    if (candles.length) {
-      const ultimo = candles[candles.length - 1];
-      const vol = parseFloat(ultimo[7]); // volume USDT
-      atualizarComAnimacao(document.getElementById("btc-trades"), formatarNumeroUSD(vol));
-    }
-
-    const bars = candles.slice(-10).map((c, i, arr) => {
-      const close = parseFloat(c[4]);
-      const prevClose = i > 0 ? parseFloat(arr[i - 1][4]) : close;
-      const cls = close >= prevClose ? "up" : "down";
-      return `<div class="bar ${cls}"></div>`;
-    }).join("");
-    document.getElementById("spark-btc").innerHTML = bars;
+    const bars = candles.map((c, i, arr) => {
+    const close = Number(c.close ?? c[4] ?? 0);
+    const prevClose = i > 0 ? Number(arr[i - 1].close ?? arr[i - 1][4] ?? close) : close;
+    const cls = close >= prevClose ? "up" : "down";
+    return `<div class="bar ${cls}"></div>`;
+        }).join("");
+        
+        document.getElementById("spark-btc").innerHTML = bars || "";
 
     // --- Open Interest ---
     const oi = scoreData?.oiData?.sumOpenInterest || 0;
     const oiUsd = scoreData?.oiData?.oiUsd || 0;
-    const oiHist = scoreData?.oiData?.hist || Array(10).fill(oi);
+    const oiHist = scoreData?.oiData?.hist || Array(10).fill(oi).slice(-10);
 
     atualizarComAnimacao(document.getElementById("btc-oi"),
       `${formatarNumero(oi)} | ${formatarNumeroUSD(oiUsd)}`);
@@ -3333,9 +3356,7 @@ const btnReset = document.getElementById("btn-reset-alertas");
 const containerSino = document.getElementById("container-alertas");
 if (containerSino) {
     containerSino.insertAdjacentElement("beforebegin", btnResetAlertas);
-    btnResetAlertas.insertAdjacentElement("afterend", btnLimparAlertas);
-    btnLimparAlertas.insertAdjacentElement("afterend", containerSino);
-}
+  }
 
 
 btnResetAlertas.addEventListener("click", () => {
@@ -3376,6 +3397,7 @@ document.getElementById("btn-reset-alertas").addEventListener("click", () => {
 
 
   </script>
+
 
 
 
