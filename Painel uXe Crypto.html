@@ -702,6 +702,8 @@ button.filtro-ativo {
 
   <button id="btn-oipos-5m" onclick="ativarFiltro('oi>=5-5m', this)">OI +5% (5m)</button>
   <button id="btn-oineg-5m" onclick="ativarFiltro('oi<=-5-5m', this)">OI -5% (5m)</button>
+  <button id="btn-oipos-1h" onclick="ativarFiltro('oi>=5-1h', this)">OI +5% (1h)</button>
+  <button id="btn-oineg-1h" onclick="ativarFiltro('oi<=-5-1h', this)">OI -5% (1h)</button>
 
   <button id="btn-favoritar">Favoritar</button>
   <button onclick="resetFiltros()">Limpar filtros</button>
@@ -868,6 +870,12 @@ if (btnOiPos5m) btnOiPos5mk = () => ativarFiltro("oi>=5-5m");
 const btnOiNeg5m = document.getElementById("btn-oineg-5m");
 if (btnOiNeg5m) btnOiNeg5mk = () => ativarFiltro("oi<=-5-5m");
 
+const btnOiPos1h = document.getElementById("btn-oipos-1h");
+if (btnOiPos1h) btnOiPos1h.onclick = () => ativarFiltro("oi>=5-1h");
+
+const btnOiNeg1h = document.getElementById("btn-oineg-1h");
+if (btnOiNeg1h) btnOiNeg1h.onclick = () => ativarFiltro("oi<=-5-1h");
+
 (function initFeedToggle(){
   const btn = document.getElementById("btn-radar-feed");
   const panel = document.getElementById("feed-panel");
@@ -983,10 +991,17 @@ function limparFeed() {
 let notificacoesAtivas = false;
 
 function toggleNotificacoes() {
-  const btn = document.getElementById("btn-notificacoes").title = "Ativar/desativar notificações do navegador";
+  const btn = document.getElementById("btn-notificacoes");
+  if (!btn) return;
+
+  btn.title = "Ativar/desativar notificações do navegador";
+
+  if (!("Notification" in window)) {
+    alert("Este navegador não suporta notificações.");
+    return;
+  }
 
   if (!notificacoesAtivas) {
-  
     if (Notification.permission === "granted") {
       notificacoesAtivas = true;
       btn.innerText = "Desativar Notificações";
@@ -1003,7 +1018,6 @@ function toggleNotificacoes() {
       alert("Notificações bloqueadas no navegador. Libere nas configurações.");
     }
   } else {
- 
     notificacoesAtivas = false;
     btn.innerText = "Ativar Notificações";
   }
@@ -1324,18 +1338,19 @@ async function aplicarOrdenacaoLista(criterio) {
     } else if (criterio === "oi-5m") {
       const d = await fetchJSONSafe(`/oi/${sym}`, {});
       val = d?.sumOpenInterest || 0;
+    
     } else if (criterio === "oiusd") {
       const d = await fetchJSONSafe(`/oi/${sym}`, {});
       val = d?.oiUsd || 0;
+    
     } else if (criterio === "oi-var-5m") {
-      const d = await fetchJSONSafe(`/oi/${sym}`, {});
-      val = d?.var5m || 0;
+      val = parseFloat(linha.dataset.oi5m || "0");
+    
     } else if (criterio === "oi-var-15m") {
-      const d = await fetchJSONSafe(`/oi/${sym}`, {});
-      val = d?.var15m || 0;
+      val = parseFloat(linha.dataset.oi15m || "0");
+    
     } else if (criterio === "oi-var-1h") {
-      const d = await fetchJSONSafe(`/oi/${sym}`, {});
-      val = d?.var1h || 0;
+      val = parseFloat(linha.dataset.oi1h || "0");
     } else if (criterio === "volume-5m") {
       const d = await fetchJSONSafe(`/volume-usd/${sym}/5m`, { volume: 0 });
       val = d?.volume || 0;
@@ -1757,11 +1772,11 @@ async function atualizarCartoesBTC() {
   const symbol = "BTCUSDT";
 
   try {
-    
     const scoreData = await fetch(`${API_BASE}/score-lote?symbols=${symbol}`)
       .then(r => r.json())
       .then(arr => arr?.[0] || null)
       .catch(() => null);
+
     if (!scoreData) return;
 
     // --- Funding Rate ---
@@ -1772,7 +1787,7 @@ async function atualizarCartoesBTC() {
     // --- Preço ---
     const wsPrice = ultimoPrecoWS.get(symbol)?.preco;
     const price = Number.isFinite(wsPrice) ? wsPrice : (scoreData?.preco ?? 0);
-    
+
     atualizarComAnimacao(
       document.getElementById("btc-price"),
       Number.isFinite(price) && price > 0 ? `$${price.toFixed(2)}` : "n/d"
@@ -1791,7 +1806,7 @@ async function atualizarCartoesBTC() {
       `1h: ${formatarVar(scoreData?.variacao?.variacao1h)} | ` +
       `4h: ${formatarVar(scoreData?.variacao?.variacao4h)} | ` +
       `1d: ${formatarVar(scoreData?.variacao?.variacao1d)} | ` +
-      `1w: ${formatarVar(scoreData?.variacao?.variacao1w)} | ` ; 
+      `1w: ${formatarVar(scoreData?.variacao?.variacao1w)}`;
 
     // --- RSI ---
     const rsi = scoreData?.rsi || {};
@@ -1802,6 +1817,7 @@ async function atualizarCartoesBTC() {
       document.getElementById("btc-rsi-central"),
       rsiCentral !== null ? rsiCentral.toFixed(2) : "n/d"
     );
+
     document.getElementById("btc-rsi-central").className =
       rsiCentral > 70 ? "up" : rsiCentral < 30 ? "down" : "";
 
@@ -1811,52 +1827,74 @@ async function atualizarCartoesBTC() {
       return `<span class="${cls}">${v.toFixed(0)}</span>`;
     }).join(" ");
 
-    // --- Fechamento BTC 5m (Volume + últimos 10 candles) ---
-    const candles = Array.isArray(window.candlesHist?.[symbol])
-          ? window.candlesHist[symbol].slice(-10)
-          : [];
-        
-        if (candles.length) {
-          const ultimo = candles[candles.length - 1];
-          const vol = Number(ultimo.vol ?? 0);
-          atualizarComAnimacao(
-            document.getElementById("btc-trades"),
-            vol > 0 ? formatarNumeroUSD(vol) : "n/d"
-          );
-        }
+    // --- Candles / Volume BTC ---
+    let candles = Array.isArray(window.candlesHist?.[symbol])
+      ? window.candlesHist[symbol].slice(-10)
+      : [];
+
+    if (candles.length < 10) {
+      const fallbackCandles = await fetch(`${API_BASE}/klines/${symbol}/5m?limit=10&market=futures`)
+        .then(r => r.json())
+        .catch(() => []);
+
+      if (Array.isArray(fallbackCandles) && fallbackCandles.length) {
+        candles = fallbackCandles.slice(-10).map(c => ({
+          open: Number(c[1]),
+          close: Number(c[4]),
+          vol: Number(c[7] ?? c[5] ?? 0),
+          exp: 50,
+          volRel: 1,
+          ts: Number(c[6] ?? Date.now())
+        }));
+      }
+    }
+
+    if (candles.length) {
+      const ultimo = candles[candles.length - 1];
+      const vol = Number(ultimo.vol ?? 0);
+      atualizarComAnimacao(
+        document.getElementById("btc-trades"),
+        vol > 0 ? formatarNumeroUSD(vol) : "n/d"
+      );
+    }
 
     const bars = candles.map((c, i, arr) => {
-    const close = Number(c.close ?? c[4] ?? 0);
-    const prevClose = i > 0 ? Number(arr[i - 1].close ?? arr[i - 1][4] ?? close) : close;
-    const cls = close >= prevClose ? "up" : "down";
-    return `<div class="bar ${cls}"></div>`;
-        }).join("");
-        
-        document.getElementById("spark-btc").innerHTML = bars || "";
+      const close = Number(c.close ?? 0);
+      const prevClose = i > 0 ? Number(arr[i - 1].close ?? close) : close;
+      const cls = close >= prevClose ? "up" : "down";
+      return `<div class="bar ${cls}"></div>`;
+    }).join("");
+
+    document.getElementById("spark-btc").innerHTML = bars || "";
 
     // --- Open Interest ---
     const oi = scoreData?.oiData?.sumOpenInterest || 0;
     const oiUsd = scoreData?.oiData?.oiUsd || 0;
-    const oiHist = scoreData?.oiData?.hist || Array(10).fill(oi).slice(-10);
+    const oiHist = (scoreData?.oiData?.hist || Array(10).fill(oi)).slice(-10);
 
-    atualizarComAnimacao(document.getElementById("btc-oi"),
-      `${formatarNumero(oi)} | ${formatarNumeroUSD(oiUsd)}`);
+    atualizarComAnimacao(
+      document.getElementById("btc-oi"),
+      `${formatarNumero(oi)} | ${formatarNumeroUSD(oiUsd)}`
+    );
+
     document.getElementById("btc-oi").className =
-      oiHist[oiHist.length - 1] >= oiHist[oiHist.length - 2] ? "up" : "down";
+      oiHist.length > 1 && oiHist[oiHist.length - 1] >= oiHist[oiHist.length - 2] ? "up" : "down";
 
     document.getElementById("btc-bars-oi").innerHTML = oiHist.map((v, i, a) =>
-      `<div class="bar ${i === 0 || v >= a[i - 1] ? "up" : "down"}"></div>`).join("");
+      `<div class="bar ${i === 0 || v >= a[i - 1] ? "up" : "down"}"></div>`
+    ).join("");
 
     // --- LSR ---
     const lsr = scoreData?.lsrData?.longShortRatio || 0;
-    const lsrHist = scoreData?.lsrData?.hist || Array(10).fill(lsr);
+    const lsrHist = (scoreData?.lsrData?.hist || Array(10).fill(lsr)).slice(-10);
 
     atualizarComAnimacao(document.getElementById("btc-lsr"), lsr.toFixed(2));
     document.getElementById("btc-lsr").className =
-      lsrHist[lsrHist.length - 1] >= lsrHist[lsrHist.length - 2] ? "up" : "down";
+      lsrHist.length > 1 && lsrHist[lsrHist.length - 1] >= lsrHist[lsrHist.length - 2] ? "up" : "down";
 
     document.getElementById("btc-bars-lsr").innerHTML = lsrHist.map((v, i, a) =>
-      `<div class="bar ${i === 0 || v >= a[i - 1] ? "up" : "down"}"></div>`).join("");
+      `<div class="bar ${i === 0 || v >= a[i - 1] ? "up" : "down"}"></div>`
+    ).join("");
 
   } catch (err) {
     console.warn("Erro ao atualizar cartões BTC:", err.message);
@@ -2001,12 +2039,13 @@ function conectarWSServidor() {
           const hist = window.candlesHist[symbol];
           const ultimo = hist[hist.length - 1];
           const novo = {
-            open: Number(open),
-            close: Number(close),
-            exp: Number.isFinite(Number(exp)) ? Number(exp) : 50,
-            volRel: Number.isFinite(Number(volRel)) ? Number(volRel) : 1,
-            ts: ts || Date.now()
-          };
+          open: Number(open),
+          close: Number(close),
+          vol: Number(vol ?? 0),
+          exp: Number.isFinite(Number(exp)) ? Number(exp) : 50,
+          volRel: Number.isFinite(Number(volRel)) ? Number(volRel) : 1,
+          ts: ts || Date.now()
+            };
 
           
           if (!ultimo || Math.abs(novo.ts - ultimo.ts) > 240000) {
@@ -2922,12 +2961,6 @@ function limparCachesPesados() {
   }
 
   
-if (window.atualizarStatusMonitor) window.atualizarStatusMonitor("normal");
-
-
-if (window.atualizarStatusMonitor) window.atualizarStatusMonitor("emergencia");
-
-
   
   if (globalThis.gc) {
     try {
@@ -2985,91 +3018,7 @@ window.addEventListener("beforeunload", () => {
 
 
 
-(function iniciarMonitorMemoria() {
-  if (!("memory" in performance)) {
-    console.warn("⚠️ Monitor de memória não suportado neste navegador.");
-    return;
-  }
 
-
-  const monitor = document.createElement("div");
-  monitor.style.position = "fixed";
-  monitor.style.top = "10px";
-  monitor.style.right = "10px";
-  monitor.style.background = "rgba(15,15,15,0.85)";
-  monitor.style.color = "#00ffb7";
-  monitor.style.fontFamily = "monospace";
-  monitor.style.fontSize = "12px";
-  monitor.style.padding = "6px 10px";
-  monitor.style.border = "1px solid #222";
-  monitor.style.borderRadius = "6px";
-  monitor.style.zIndex = "9999";
-  monitor.style.boxShadow = "0 0 10px rgba(0,255,183,0.3)";
-  monitor.style.userSelect = "none";
-  monitor.style.opacity = "0.9";
-  monitor.style.transition = "opacity 0.3s";
-  monitor.onmouseenter = () => (monitor.style.opacity = "1");
-  monitor.onmouseleave = () => (monitor.style.opacity = "0.4");
-  document.body.appendChild(monitor);
-
-  
-  let lastTime = performance.now();
-  let frames = 0;
-  let fps = 0;
-  let ultimaLimpeza = "-";
-  let statusLimpeza = "OK";
-  let contadorNormal = 0;
-  let contadorEmerg = 0;
-
-  
-  window.atualizarStatusMonitor = function (tipo = "normal") {
-    ultimaLimpeza = new Date().toLocaleTimeString();
-    if (tipo === "emergencia") {
-      contadorEmerg++;
-      statusLimpeza = "🚨 Emergencial";
-    } else {
-      contadorNormal++;
-      statusLimpeza = "🧹 Normal";
-    }
-  };
-
- 
-  function medirFPS() {
-    const agora = performance.now();
-    frames++;
-    if (agora - lastTime >= 1000) {
-      fps = frames;
-      frames = 0;
-      lastTime = agora;
-    }
-    requestAnimationFrame(medirFPS);
-  }
-  medirFPS();
-
-
-  setInterval(() => {
-    try {
-      const heap = performance.memory.usedJSHeapSize / 1048576; // MB
-      const heapTotal = performance.memory.jsHeapSizeLimit / 1048576;
-      const linhas = painelBody?.querySelectorAll("tr").length || 0;
-      const heapPct = ((heap / heapTotal) * 100).toFixed(1);
-
-      monitor.innerHTML =
-        `💾 <b>Monitor uXe</b><br>` +
-        `Heap: ${heap.toFixed(1)} MB (${heapPct}% usado)<br>` +
-        `DOM: ${linhas} linhas<br>` +
-        `FPS: ${fps}<br>` +
-        `Últ. limpeza: ${ultimaLimpeza}<br>` +
-        `Status: ${statusLimpeza}<br>` +
-        `🧹 Limpezas: ${contadorNormal} normais / ${contadorEmerg} emergenciais`;
-
-     
-      monitor.style.color = heapPct > 80 ? "#ff5757" : "#00ffb7";
-    } catch (err) {
-      console.warn("Monitor de memória falhou:", err);
-    }
-  }, 2000);
-})();
 
 
 function aplicarAnimacoes(symbol, scoreData) {
@@ -3397,6 +3346,7 @@ document.getElementById("btn-reset-alertas").addEventListener("click", () => {
 
 
   </script>
+
 
 
 
