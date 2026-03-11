@@ -2099,9 +2099,8 @@ app.get("/top-ativos", async (req, res) => {
 /* ==========================[ 18) KLINES (cache 15s) ]======================== */
 app.get("/klines/:symbol/:interval", async (req, res) => {
   const { symbol, interval } = req.params;
-
-  // Agora o padrão é futures
-  const preferredMarket = req.query.market || "futures";
+  const market = req.query.market || "futures";
+  const limit = Math.min(Number(req.query.limit || 10), 50);
 
   if (!simboloValido(symbol)) {
     return res.status(400).json({ error: "Símbolo inválido", symbol });
@@ -2109,16 +2108,16 @@ app.get("/klines/:symbol/:interval", async (req, res) => {
 
   try {
     const klines = await getWithCache(
-      `k-${preferredMarket}-${symbol}-${interval}`,
+      `k-${market}-${symbol}-${interval}-${limit}`,
       15_000,
       async () => {
-        return await fetchKlinesWithFallback(symbol, interval, preferredMarket, 2);
+        return await fetchKlinesWithFallback(symbol, interval, market, limit);
       }
     );
 
     res.json(Array.isArray(klines) ? klines : []);
   } catch (err) {
-    console.error(`❌ /klines ${symbol} ${interval} ${preferredMarket}:`, err.message);
+    console.error(`❌ /klines ${symbol} ${interval} ${market}:`, err.message);
     res.status(500).json({ error: "Erro ao buscar klines", details: err.message });
   }
 });
@@ -2769,11 +2768,11 @@ function configurarListenersBinance(ws, lote, idx) {
 
       
       if (data.e === "kline") {
-        const { s: symbol, i: tf, o, c, v, T } = data.k;
+        const { s: symbol, i: tf, o, c, v, q, T } = data.k;
 
         const open = parseFloat(o);
         const close = parseFloat(c);
-        const vol = parseFloat(v);
+        const vol = parseFloat(q ?? v);
         if (!Number.isFinite(close)) return;
 
         if (!cacheCandles[symbol]) cacheCandles[symbol] = {};
@@ -3089,6 +3088,7 @@ wss.on("connection", (ws) => {
 
 
 let recomputeTimer = null;
+
 
 
 
