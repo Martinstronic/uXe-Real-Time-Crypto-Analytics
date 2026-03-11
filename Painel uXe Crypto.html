@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Painel uXe Crypto</title>
+  <title>uXe Crypto Analytics</title>
   <style>
     body {
       background-color: #0d1117;
@@ -208,14 +208,14 @@
     }
 
     .vol-alto {
-  color: #00ff00; /* verde chamativo */
+  color: #00ff00; 
   font-weight: bold;
 }
 .vol-normal {
-  color: inherit; /* mantém a cor padrão */
+  color: inherit; 
 }
 
-/* Animação leve de mudança */
+
 .valor-atualizado {
   animation: pulse 0.5s ease-out;
 }
@@ -232,7 +232,6 @@
 }
 
 
-/* 💡 Animação de atualização leve */
 .flash {
   animation: flashChange 0.6s ease;
 }
@@ -242,7 +241,7 @@
   100% { background-color: transparent; }
 }
 
-/* 💡 Animação leve para células atualizadas */
+
 .flash {
   animation: flashHighlight 0.5s ease-in-out;
 }
@@ -286,13 +285,13 @@
 
 
 .lista-alertas {
-    max-height: 200px; /* limita altura para não estourar o layout */
-    overflow-y: auto;  /* habilita rolagem vertical */
-    scrollbar-width: thin; /* Firefox */
+    max-height: 200px; 
+    overflow-y: auto;  
+    scrollbar-width: thin; 
 }
 
 .lista-alertas::-webkit-scrollbar {
-    width: 6px; /* largura da barra */
+    width: 6px; 
 }
 
 .lista-alertas::-webkit-scrollbar-thumb {
@@ -307,14 +306,14 @@
 .alertas-ul {
     max-height: 200px;
     overflow-y: auto;
-    padding-right: 5px; /* espaço pro scroll não cobrir texto */
+    padding-right: 5px; 
 }
 
-/* ZEBRA alternada padrão */
+
 tr.zebra-even { background-color: #111; }
 tr.zebra-odd  { background-color: #171717; }
 
-/* Capitulation highlight (sobrepõe zebra) */
+
 tr.cap-long-row {
   background-color: rgba(2, 57, 82, 0.3) !important;
 }
@@ -391,7 +390,7 @@ tr.cap-short-row {
 }
 
 
-/* Botão com badge quando há novidades */
+
 #btn-radar-feed.has-new {
   position: relative;
   animation: pulse 1.2s infinite;
@@ -590,7 +589,7 @@ button.filtro-ativo {
 
 
 <body>
-  <h5>Painel uXe</h5>
+  <h5>uXe Crypto Analytics</h5>
 
 
 
@@ -864,17 +863,6 @@ function atualizarComAnimacao(el, novoValor) {
   
 }
 
-const btnOiPos5m = document.getElementById("btn-oipos-5m");
-if (btnOiPos5m) btnOiPos5mk = () => ativarFiltro("oi>=5-5m");
-
-const btnOiNeg5m = document.getElementById("btn-oineg-5m");
-if (btnOiNeg5m) btnOiNeg5mk = () => ativarFiltro("oi<=-5-5m");
-
-const btnOiPos1h = document.getElementById("btn-oipos-1h");
-if (btnOiPos1h) btnOiPos1h.onclick = () => ativarFiltro("oi>=5-1h");
-
-const btnOiNeg1h = document.getElementById("btn-oineg-1h");
-if (btnOiNeg1h) btnOiNeg1h.onclick = () => ativarFiltro("oi<=-5-1h");
 
 (function initFeedToggle(){
   const btn = document.getElementById("btn-radar-feed");
@@ -1274,22 +1262,27 @@ function aplicarFiltrosCombinados() {
 
    
     filtrosAtivos.forEach(f => {
-      if (f === "qbull" && !linha.classList.contains("qbull")) visivel = false;
-      if (f === "qbear" && !linha.classList.contains("qbear")) visivel = false;
-      if (f === "flow" && !linha.classList.contains("flow")) visivel = false;
-      if (f === "capitulation" && !linha.classList.contains("capitulation")) visivel = false;
-
+      
       if (f.startsWith("oi>=")) {
-        const [_, perc, tf] = f.match(/oi>=(\-?\d+)-(\w+)/) || [];
-        const val = parseFloat(linha.dataset[`oi${tf}`] || 0);
-        if (!(val >= parseFloat(perc))) visivel = false;
+      const m = f.match(/^oi>=(\-?\d+)-(5m|15m|1h)$/);
+      if (m) {
+        const perc = Number(m[1]);
+        const tf = m[2];
+        const val = Number(linha.dataset[`oi${tf}`] || 0);
+        if (!(val >= perc)) visivel = false;
       }
-
-      if (f.startsWith("oi<=")) {
-        const [_, perc, tf] = f.match(/oi<=(\-?\d+)-(\w+)/) || [];
-        const val = parseFloat(linha.dataset[`oi${tf}`] || 0);
-        if (!(val <= parseFloat(perc))) visivel = false;
+    }
+    
+    if (f.startsWith("oi<=")) {
+      const m = f.match(/^oi<=(\-?\d+)-(5m|15m|1h)$/);
+      if (m) {
+        const perc = Number(m[1]);
+        const tf = m[2];
+        const val = Number(linha.dataset[`oi${tf}`] || 0);
+        if (!(val <= perc)) visivel = false;
       }
+    }
+      
     });
 
     linha.style.display = visivel ? "" : "none";
@@ -1302,80 +1295,65 @@ function aplicarFiltrosCombinados() {
 
 
 // ==============================
-// 🔍 Filtrar por OI %
-// ==============================
-async function filtrarPorOI(lista, cond, timeframe) {
-  const out = [];
-  for (let symbol of lista) {
-    const data = await fetchJSONSafe(`/oi/${symbol}`, {});
-    if (!data) continue;
-
-    let pct = 0;
-    if (timeframe === "5m") pct = data.var5m ?? 0;
-    else if (timeframe === "15m") pct = data.var15m ?? 0;
-    else if (timeframe === "1h") pct = data.var1h ?? 0;
-
-    if (cond === ">=3" && pct >= 3) out.push(symbol);
-    if (cond === "<=-3" && pct <= -3) out.push(symbol);
-  }
-  return out;
-}
-
-// ==============================
 // 🔽 Ordenar lista já filtrada
 // ==============================
 
 async function aplicarOrdenacaoLista(criterio) {
-  const linhas = Array.from(painelBody.querySelectorAll("tr")).filter(tr => tr.style.display !== "none");
+  const linhas = Array.from(painelBody.querySelectorAll("tr"))
+    .filter(tr => tr.style.display !== "none");
+
   if (!linhas.length) return;
 
-  const valores = await Promise.all(linhas.map(async (linha) => {
+  const valores = linhas.map((linha) => {
     const sym = linha.dataset.symbol;
-    let val = 0;
+    let val = Number.NEGATIVE_INFINITY;
 
     if (criterio === "top50") {
-      val = symbolsOriginais.indexOf(sym) >= 0 ? (999999 - symbolsOriginais.indexOf(sym)) : 0;
-    } else if (criterio === "oi-5m") {
-      const d = await fetchJSONSafe(`/oi/${sym}`, {});
-      val = d?.sumOpenInterest || 0;
-    
-    } else if (criterio === "oiusd") {
-      const d = await fetchJSONSafe(`/oi/${sym}`, {});
-      val = d?.oiUsd || 0;
-    
+      const idx = symbolsOriginais.indexOf(sym);
+      val = idx >= 0 ? (999999 - idx) : Number.NEGATIVE_INFINITY;
+
     } else if (criterio === "oi-var-5m") {
-      val = parseFloat(linha.dataset.oi5m || "0");
-    
+      val = Number(linha.dataset.oi5m ?? Number.NEGATIVE_INFINITY);
+
     } else if (criterio === "oi-var-15m") {
-      val = parseFloat(linha.dataset.oi15m || "0");
-    
+      val = Number(linha.dataset.oi15m ?? Number.NEGATIVE_INFINITY);
+
     } else if (criterio === "oi-var-1h") {
-      val = parseFloat(linha.dataset.oi1h || "0");
+      val = Number(linha.dataset.oi1h ?? Number.NEGATIVE_INFINITY);
+
+    } else if (criterio === "oi-5m") {
+      val = Number(linha.dataset.oiAbs ?? Number.NEGATIVE_INFINITY);
+
+    } else if (criterio === "oiusd") {
+      val = Number(linha.dataset.oiUsd ?? Number.NEGATIVE_INFINITY);
+
     } else if (criterio === "volume-5m") {
-      const d = await fetchJSONSafe(`/volume-usd/${sym}/5m`, { volume: 0 });
-      val = d?.volume || 0;
+      val = Number(linha.dataset.vol5m ?? Number.NEGATIVE_INFINITY);
+
     } else if (criterio === "volume-15m") {
-      const d = await fetchJSONSafe(`/volume-usd/${sym}/15m`, { volume: 0 });
-      val = d?.volume || 0;
+      val = Number(linha.dataset.vol15m ?? Number.NEGATIVE_INFINITY);
+
     } else if (criterio === "volume-1d") {
-      const d = await fetchJSONSafe(`/volume-usd/${sym}/1d`, { volume: 0 });
-      val = d?.volume || 0;
+      val = Number(linha.dataset.vol1d ?? Number.NEGATIVE_INFINITY);
     }
 
     return { sym, linha, val };
-  }));
+  });
 
-  valores.sort((a, b) => b.val - a.val);
+  valores.sort((a, b) => {
+    const av = Number.isFinite(a.val) ? a.val : Number.NEGATIVE_INFINITY;
+    const bv = Number.isFinite(b.val) ? b.val : Number.NEGATIVE_INFINITY;
+    return bv - av;
+  });
 
-  valores.forEach((v, idx) => {
-    painelBody.appendChild(v.linha);
-    const indexCell = v.linha.querySelector(".col-index");
+  valores.forEach((item, idx) => {
+    painelBody.appendChild(item.linha);
+    const indexCell = item.linha.querySelector(".col-index");
     if (indexCell) indexCell.textContent = idx + 1;
   });
 
   symbolsParaExibir = valores.map(v => v.sym);
 }
-
 
 function resetFiltros() {
   filtrosAtivos.clear();
@@ -2580,6 +2558,12 @@ setInterval(() => {
     row.dataset.oi5m = String(scoreData.oiData?.var5m ?? 0);
     row.dataset.oi15m = String(scoreData.oiData?.var15m ?? 0);
     row.dataset.oi1h = String(scoreData.oiData?.var1h ?? 0);
+
+    row.dataset.oiAbs = String(scoreData.oiData?.sumOpenInterest ?? 0);
+    row.dataset.oiUsd = String(scoreData.oiData?.oiUsd ?? 0);
+    row.dataset.vol5m = String(scoreData.volume?.vol5m?.volume ?? 0);
+    row.dataset.vol15m = String(scoreData.volume?.vol15m?.volume ?? 0);
+    row.dataset.vol1d = String(scoreData.volume?.vol1d?.volume ?? 0);
     
     const rsiVals=[
       scoreData.rsi?.rsi1m, scoreData.rsi?.rsi5m, scoreData.rsi?.rsi15m,
@@ -3346,6 +3330,7 @@ document.getElementById("btn-reset-alertas").addEventListener("click", () => {
 
 
   </script>
+
 
 
 
