@@ -852,10 +852,10 @@ function atualizarComAnimacao(el, novoValor) {
 }
 
 const btnOiPos5m = document.getElementById("btn-oipos-5m");
-if (btnOiPos5m) btnOiPos5m.onclick = () => ativarFiltro("oi>=5-5m");
+if (btnOiPos5m) btnOiPos5mk = () => ativarFiltro("oi>=5-5m");
 
 const btnOiNeg5m = document.getElementById("btn-oineg-5m");
-if (btnOiNeg5m) btnOiNeg5m.onclick = () => ativarFiltro("oi<=-5-5m");
+if (btnOiNeg5m) btnOiNeg5mk = () => ativarFiltro("oi<=-5-5m");
 
 (function initFeedToggle(){
   const btn = document.getElementById("btn-radar-feed");
@@ -1425,9 +1425,8 @@ document.querySelectorAll(".alerta-preco").forEach(input => {
  function fecharModal() {
   document.getElementById("modal-liquid").style.display = "none";
 }
-
-
-document.getElementById("btn-fechar-modal").onclick = fecharModal;
+const modaliquido = document.getElementById("btn-fechar-modal");
+    if(modaliquido) modaliquido.onclick = () => fecharModal;
 
 
 document.getElementById("modal-liquid").addEventListener("click", function(e) {
@@ -3377,6 +3376,7 @@ document.getElementById("btn-reset-alertas").addEventListener("click", () => {
 
 
   </script>
+
 
 
 
