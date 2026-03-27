@@ -506,28 +506,18 @@ app.get("/alerta", async (req, res) => {
 
 /* ===========================[ 8) PREÇO SPOT CACHED ]========================== */
 app.get("/preco/:symbol", async (req, res) => {
-  const { symbol } = req.params;
+  const symbol = String(req.params.symbol || "").toUpperCase();
 
   try {
-    const precoData = await getWithCache(
-      `preco-${symbol}`,
-      10_000, // TTL: 10s
-      async () => {
-        try {
-          // tenta SPOT primeiro
-          const { data } = await api.get("https://api.binance.com/api/v3/ticker/price", {
-            params: { symbol }
-          });
-          return { preco: parseFloat(data.price) };
-        } catch (err) {
-          // fallback FUTURES
-          const { data } = await axios.get(`${BINANCE_FUTURES}/ticker/price`, {
-            params: { symbol }
-          });
-          return { preco: parseFloat(data.price) };
-        }
-      }
-    );
+    const precoData = await getPrecoInterno(symbol);
+
+    if (!precoData.preco) {
+      return res.status(404).json({
+        symbol,
+        preco: 0,
+        error: "Preço ainda não disponível em cache"
+      });
+    }
 
     res.json(precoData);
   } catch (err) {
@@ -543,6 +533,227 @@ let rsiQueueProcessing = false;
 let lastRsiProcessTs = 0;
 const cacheRSI = new Map();
 const precoCache = new Map(); 
+
+// =====================[ HELPERS INTERNOS ]======================
+
+function getPrecoFromCaches(symbol) {
+  const s = String(symbol || "").toUpperCase();
+  const tickerWs = cacheTicker?.get?.(s);
+  const precoWs = precoCache?.get?.(s);
+
+  const preco =
+    Number(tickerWs?.price ?? precoWs ?? 0) || 0;
+
+  return {
+    symbol: s,
+    preco,
+    source: tickerWs?.price != null ? "ws:ticker" : (precoWs != null ? "ws:precoCache" : "indisponivel"),
+    ts: Date.now()
+  };
+}
+
+async function getPrecoInterno(symbol) {
+  const out = getPrecoFromCaches(symbol);
+  return out;
+}
+
+async function getFundingInterno(symbol) {
+  const s = String(symbol || "").toUpperCase();
+  try {
+    return await getWithCache(
+      `funding-${s}`,
+      7_200_000,
+      async () => {
+        try {
+          const url = `${BINANCE_FUTURES}/premiumIndex?symbol=${s}`;
+          const resp = await fetchWithBackoff(url, {}, 2);
+          return {
+            fundingRate: Number(resp?.lastFundingRate ?? resp?.fundingRate ?? 0),
+            ts: Date.now()
+          };
+        } catch {
+          return { fundingRate: 0, ts: Date.now() };
+        }
+      }
+    );
+  } catch {
+    return { fundingRate: 0, ts: Date.now() };
+  }
+}
+
+async function getLSRInterno(symbol) {
+  const s = String(symbol || "").toUpperCase();
+  try {
+    let data = getLSRFromCache(s);
+    if (!data) {
+      data = await fetchLSR(s);
+      setLSRCache(s, data);
+    }
+    return data;
+  } catch {
+    return { symbol: s, longShortRatio: 0, hist: [] };
+  }
+}
+
+async function getLSARInterno(symbol) {
+  const s = String(symbol || "").toUpperCase();
+  try {
+    let data = getLSARFromCache(s);
+    if (!data) {
+      data = await fetchLSAR(s);
+      setLSARCache(s, data);
+    }
+    return data;
+  } catch {
+    return { symbol: s, ratio: 0, hist: [] };
+  }
+}
+
+async function getLSPRInterno(symbol) {
+  const s = String(symbol || "").toUpperCase();
+  try {
+    let data = getLSPRFromCache(s);
+    if (!data) {
+      data = await fetchLSPR(s);
+      setLSPRCache(s, data);
+    }
+    return data;
+  } catch {
+    return { symbol: s, ratio: 0, hist: [] };
+  }
+}
+
+async function getVolumeInterno(symbol, interval) {
+  const s = String(symbol || "").toUpperCase();
+  try {
+    let data = getVolumeFromCache(s, interval);
+    if (!data) {
+      data = await fetchVolume(s, interval);
+      setVolumeCache(s, interval, data);
+    }
+    return data;
+  } catch {
+    return { volume: 0 };
+  }
+}
+
+async function getVariacaoInterno(symbol, interval) {
+  const s = String(symbol || "").toUpperCase();
+  try {
+    const data = await fetchKlinesCached(s, interval, "futures", 10);
+    if (!data?.length || data.length < 2) {
+      return { value: "n/d", up: true, hist: [] };
+    }
+
+    const candles = data.map(c => ({
+      open: parseFloat(c[1]),
+      close: parseFloat(c[4])
+    }));
+
+    const prev = candles.at(-2);
+    const value = prev.open > 0 ? ((prev.close - prev.open) / prev.open) * 100 : 0;
+    const hist = candles.map(c => ((c.close - c.open) / c.open) * 100);
+
+    return {
+      value: value.toFixed(2),
+      up: prev.close >= prev.open,
+      hist: hist.map(v => v.toFixed(2))
+    };
+  } catch {
+    return { value: "n/d", up: true, hist: [] };
+  }
+}
+
+function getForcaRsiBtcInterno(symbol) {
+  const s = String(symbol || "").toUpperCase();
+
+  if (!cacheRSI.get(`BTCUSDT:1m`)) enqueueRSI("BTCUSDT", "high");
+  if (!cacheRSI.get(`${s}:1m`)) enqueueRSI(s, "high");
+
+  const result = {};
+  const deltaRSI = {};
+  const intervals = ["1m","5m","15m","30m","1h","4h","1d"];
+
+  for (const int of intervals) {
+    const ativoData = cacheRSI.get(`${s}:${int}`);
+    const btcData   = cacheRSI.get(`BTCUSDT:${int}`);
+
+    const rsiAtivo = ativoData?.rsi ?? null;
+    const rsiBTC   = btcData?.rsi ?? null;
+
+    if (typeof rsiAtivo === "number" && typeof rsiBTC === "number") {
+      let delta = rsiAtivo - rsiBTC;
+      if (delta > 100) delta = 100;
+      if (delta < -100) delta = -100;
+
+      result[int] = +delta.toFixed(2);
+      deltaRSI[int] = +(rsiAtivo - rsiBTC).toFixed(2);
+    } else {
+      result[int] = null;
+      deltaRSI[int] = null;
+    }
+  }
+
+  return { symbol: s, base: "BTCUSDT", forcaRSI: result, deltaRSI };
+}
+
+async function getOiLoteInterno(symbols = []) {
+  const results = {};
+
+  for (const raw of symbols) {
+    const symbol = String(raw || "").toUpperCase();
+    try {
+      const cached = getOiFromCache(symbol);
+      if (cached) {
+        results[symbol] = cached;
+      } else {
+        const data = await fetchOiCompleto(symbol);
+        setOiCache(symbol, data);
+        results[symbol] = data;
+      }
+
+      await new Promise(r => setTimeout(r, 250));
+    } catch {
+      results[symbol] = {
+        symbol,
+        sumOpenInterest: 0,
+        oiUsd: 0,
+        hist: [],
+        hist1h: [],
+        var1m: 0,
+        var3m: 0,
+        var5m: 0,
+        var15m: 0,
+        var1h: 0
+      };
+    }
+  }
+
+  return results;
+}
+
+async function getVolumeLoteInterno(symbols = [], interval) {
+  const results = {};
+
+  await processarEmLotes(symbols, 5, 600, async (s) => {
+    const symbol = String(s || "").toUpperCase();
+    let data = getVolumeFromCache(symbol, interval);
+    if (!data) {
+      data = await fetchVolume(symbol, interval);
+      setVolumeCache(symbol, interval, data);
+    }
+    results[symbol] = data;
+  });
+
+  return results;
+}
+
+
+
+
+
+
+
 
 
 // TTLs por faixa de prioridade (ms)
@@ -849,36 +1060,9 @@ res.status(500).json({ error: String(err) });
 
 app.get('/forca-rsi-btc/:symbol', async (req,res) => {
   try {
-    const { symbol } = req.params;
-
-   
-    if (!cacheRSI.get(`BTCUSDT:1m`)) enqueueRSI('BTCUSDT','high');
-    if (!cacheRSI.get(`${symbol}:1m`)) enqueueRSI(symbol,'high');
-
-    const result = {};
-    const deltaRSI = {};
-    const intervals = ["1m","5m","15m","30m","1h","4h","1d"];
-
-    for (const int of intervals) {
-      const ativoData = cacheRSI.get(`${symbol}:${int}`);
-      const btcData   = cacheRSI.get(`BTCUSDT:${int}`);
-
-      const rsiAtivo = ativoData?.rsi ?? null;
-      const rsiBTC   = btcData?.rsi ?? null;
-
-      if (typeof rsiAtivo === 'number' && typeof rsiBTC === 'number') {
-        let delta = rsiAtivo - rsiBTC;
-        if (delta > 100) delta = 100;
-        if (delta < -100) delta = -100;
-        result[int]   = +delta.toFixed(2);
-        deltaRSI[int] = +(rsiAtivo - rsiBTC).toFixed(2);
-      } else {
-        result[int] = null;
-        deltaRSI[int] = null;
-      }
-    }
-
-    res.json({ symbol, base: 'BTCUSDT', forcaRSI: result, deltaRSI });
+    const symbol = String(req.params.symbol || "").toUpperCase();
+    const data = getForcaRsiBtcInterno(symbol);
+    res.json(data);
   } catch (err) {
     console.error('/forca-rsi-btc erro', err && err.stack ? err.stack : err);
     res.status(500).json({ error: String(err) });
@@ -895,30 +1079,11 @@ for (const s of listSymbols) enqueueRSI(s, prioridade);
 
 module.exports._rsi = { rsiCache, enqueueRSI, primeRsiForList };
 
-/* ==========================[ FUNDING (futures) com cache ]========================= */
+/* ==========================[ FUNDING RATE ]========================= */
 app.get("/funding/:symbol", async (req, res) => {
   const symbol = (req.params.symbol || "").toUpperCase();
-  try {
-    const out = await getWithCache(
-      `funding-${symbol}`,
-      7_200_000, 
-      async () => {
-        try {
-          const url = `${BINANCE_FUTURES}/premiumIndex?symbol=${symbol}`;
-          const resp = await fetchWithBackoff(url, {}, 2);
-          return {
-            fundingRate: Number(resp?.lastFundingRate ?? resp?.fundingRate ?? 0),
-            ts: Date.now()
-          };
-        } catch {
-          return { fundingRate: 0, ts: Date.now() };
-        }
-      }
-    );
-    res.json(out);
-  } catch {
-    res.json({ fundingRate: 0, ts: Date.now() });
-  }
+  const out = await getFundingInterno(symbol);
+  res.json(out);
 });
 
 // =====================[ OI CACHE GLOBAL ]======================
@@ -1077,11 +1242,11 @@ async function fetchOiCompleto(symbol) {
     const sumOpenInterest = hist5m.at(-1) || 0;
 
     
-    let precoAtual = 0;
-    try {
-      const precoResp = await axios.get(`http://localhost:${PORT}/preco/${symbol}`);
-      precoAtual = precoResp.data?.preco || 0;
-    } catch {}
+   let precoAtual = 0;
+  try {
+    const precoData = await getPrecoInterno(symbol);
+    precoAtual = Number(precoData?.preco || 0);
+  } catch {}
 
     const oiUsd = +(sumOpenInterest * precoAtual).toFixed(2);
 
@@ -1199,41 +1364,13 @@ app.get("/oi/:symbol", async (req, res) => {
 
 // =====================[ ROTA OI LOTE ]======================
 app.post("/oi-lote", async (req, res) => {
-  const { symbols } = req.body;
+  const { symbols } = req.body || {};
   if (!Array.isArray(symbols) || !symbols.length) {
     return res.status(400).json({ error: "Lista de símbolos inválida" });
   }
 
   try {
-    const results = {};
-
-    for (const symbol of symbols) {
-      try {
-        const cached = getOiFromCache(symbol);
-        if (cached) {
-          results[symbol] = cached;
-        } else {
-          const data = await fetchOiCompleto(symbol);
-          setOiCache(symbol, data);
-          results[symbol] = data;
-        }
-        await new Promise(r => setTimeout(r, 250));
-      } catch {
-        results[symbol] = {
-          symbol,
-          sumOpenInterest: 0,
-          oiUsd: 0,
-          hist: [],
-          hist1h: [],
-          var1m: 0,
-          var3m: 0,
-          var5m: 0,
-          var15m: 0,
-          var1h: 0
-        };
-      }
-    }
-
+    const results = await getOiLoteInterno(symbols);
     res.json(results);
   } catch (err) {
     console.error("❌ Erro /oi-lote:", err.message);
@@ -1242,9 +1379,6 @@ app.post("/oi-lote", async (req, res) => {
 });
 
 
-
-
-/* =======================[ 12) LSR / LSAR / LSPR  com cache]============================ */
 
 // =====================[ TTL CONFIG ]=====================
 const LSR_TTLS = {
@@ -1360,60 +1494,28 @@ async function fetchVolume(symbol, interval) {
 
 // =====================[ ROTAS INDIVIDUAIS ]=====================
 app.get("/lsr/:symbol", async (req, res) => {
-  const { symbol } = req.params;
-  try {
-    let data = getLSRFromCache(symbol);
-    if (!data) {
-      data = await fetchLSR(symbol);
-      setLSRCache(symbol, data);
-    }
-    res.json(data);
-  } catch {
-    res.json({ symbol, longShortRatio: 0, hist: [] });
-  }
+  const symbol = String(req.params.symbol || "").toUpperCase();
+  const data = await getLSRInterno(symbol);
+  res.json(data);
 });
 
 app.get("/lsar/:symbol", async (req, res) => {
-  const { symbol } = req.params;
-  try {
-    let data = getLSARFromCache(symbol);
-    if (!data) {
-      data = await fetchLSAR(symbol);
-      setLSARCache(symbol, data);
-    }
-    res.json(data);
-  } catch {
-    res.json({ symbol, ratio: 0, hist: [] });
-  }
+  const symbol = String(req.params.symbol || "").toUpperCase();
+  const data = await getLSARInterno(symbol);
+  res.json(data);
 });
 
 app.get("/lspr/:symbol", async (req, res) => {
-  const { symbol } = req.params;
-  try {
-    let data = getLSPRFromCache(symbol);
-    if (!data) {
-      data = await fetchLSPR(symbol);
-      setLSPRCache(symbol, data);
-    }
-    res.json(data);
-  } catch {
-    res.json({ symbol, ratio: 0, hist: [] });
-  }
+  const symbol = String(req.params.symbol || "").toUpperCase();
+  const data = await getLSPRInterno(symbol);
+  res.json(data);
 });
 
 app.get("/volume-usd/:symbol/:interval", async (req, res) => {
-  const symbol = req.params.symbol.toUpperCase();
+  const symbol = String(req.params.symbol || "").toUpperCase();
   const interval = req.params.interval;
-  try {
-    let data = getVolumeFromCache(symbol, interval);
-    if (!data) {
-      data = await fetchVolume(symbol, interval);
-      setVolumeCache(symbol, interval, data);
-    }
-    res.json(data);
-  } catch {
-    res.json({ volume: 0 });
-  }
+  const data = await getVolumeInterno(symbol, interval);
+  res.json(data);
 });
 
 
@@ -1482,51 +1584,21 @@ app.post("/volume-lote", async (req, res) => {
     return res.status(400).json({ error: "Parâmetros inválidos" });
   }
 
-  const results = {};
-  await processarEmLotes(symbols, 5, 600, async (s) => {
-    let data = getVolumeFromCache(s, interval);
-    if (!data) {
-      data = await fetchVolume(s, interval);
-      setVolumeCache(s, interval, data);
-    }
-    results[s] = data;
-  });
-
-  res.json(results);
+  try {
+    const results = await getVolumeLoteInterno(symbols, interval);
+    res.json(results);
+  } catch (err) {
+    console.error("❌ Erro /volume-lote:", err.message);
+    res.status(500).json({ error: "Falha ao processar lote de volume" });
+  }
 });
 
 
-// ====== VARIAÇÃO % Preço  ======
 app.get("/variacao/:symbol/:interval", async (req, res) => {
-  const { symbol, interval } = req.params;
-  try {
-    const data = await fetchKlinesCached(symbol, interval, "futures", 10); // pega 10
-    if (!data?.length || data.length < 2) {
-      return res.json({ value: "n/d", up: true, hist: [] });
-    }
-
-    
-    const candles = data.map(c => ({
-      open: parseFloat(c[1]),
-      close: parseFloat(c[4])
-    }));
-
-   
-    const prev = candles.at(-2);
-    const value = prev.open > 0 ? ((prev.close - prev.open) / prev.open) * 100 : 0;
-
-    
-    const hist = candles.map(c => ((c.close - c.open) / c.open) * 100);
-
-    res.json({
-      value: value.toFixed(2),
-      up: prev.close >= prev.open,
-      hist: hist.map(v => v.toFixed(2)) // opcional
-    });
-  } catch (err) {
-    console.error(`❌ /variacao ${symbol} ${interval}:`, err.message);
-    res.json({ value: "n/d", up: true, hist: [] });
-  }
+  const symbol = String(req.params.symbol || "").toUpperCase();
+  const interval = req.params.interval;
+  const data = await getVariacaoInterno(symbol, interval);
+  res.json(data);
 });
 
  
@@ -1835,12 +1907,8 @@ async function radarBatchVolume(grupo) {
   const batch = symbols.slice(idx, idx + batchSize);
 
   try {
-    const resp = await fetch(`http://localhost:${PORT}/volume-lote`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ symbols: batch, interval: "5m" }) 
-    });
-    const lote = await resp.json();
+ const lote = await getOiLoteInterno(batch);
+
 
     for (const s of batch) {
       try {
@@ -2171,11 +2239,11 @@ async function montarScore(symbol) {
 const key1m = `${symbol}:1m`;
 
     // ==== PREÇO ====
-    let preco = 0;
-    try {
-      const precoData = await fetchJSON(`http://localhost:${PORT}/preco/${symbol}`, { preco: 0 });
-      preco = safe(precoData, "preco", 0);
-    } catch {}
+     let preco = 0;
+      try {
+        const precoData = await getPrecoInterno(symbol);
+        preco = safe(precoData, "preco", 0);
+      } catch {}
 
     // ==== OI DATA ====
     let oiData = getOiFromCache(symbol);
@@ -2190,9 +2258,9 @@ const key1m = `${symbol}:1m`;
 
 
     // ==== LSR / LSAR / LSPR ====
-    const lsrData  = await fetchJSON(`http://localhost:${PORT}/lsr/${symbol}`,  { longShortRatio: 0, hist: [] });
-    const lsarData = await fetchJSON(`http://localhost:${PORT}/lsar/${symbol}`, { ratio: 0, hist: [] });
-    const lsprData = await fetchJSON(`http://localhost:${PORT}/lspr/${symbol}`, { ratio: 0, hist: [] });
+   const lsrData  = await getLSRInterno(symbol);
+   const lsarData = await getLSARInterno(symbol);
+   const lsprData = await getLSPRInterno(symbol);
 
 
 // ==== RSI, exp (delta RSI, antigo exposição ao BTC) e volrel (1m,5m,15m,30m,1h,4h,1d) ====
@@ -2215,30 +2283,28 @@ for (const intv of intervals) {
 }
   
   
-    const forcaBTC = await fetchJSON(`http://localhost:${PORT}/forca-rsi-btc/${symbol}`, {
-      forcaRSI: { "1m": 0,"5m": 0, "15m": 0, "30m": 0, "1h": 0, "4h": 0, "1d": 0 }
-    });
+   const forcaBTC = getForcaRsiBtcInterno(symbol);
 
 
     // ==== FUNDING ====
-    const frData = await fetchJSON(`http://localhost:${PORT}/funding/${symbol}`, { fundingRate: 0 });
+    const frData = await getFundingInterno(symbol);
 
     // ==== VOLUME USD ====
-    const vol5m   = await fetchJSON(`http://localhost:${PORT}/volume-usd/${symbol}/5m`,   { volume: 0 });
-    const vol15m   = await fetchJSON(`http://localhost:${PORT}/volume-usd/${symbol}/15m`,   { volume: 0 });
-    const vol1d   = await fetchJSON(`http://localhost:${PORT}/volume-usd/${symbol}/1d`,   { volume: 0 });
-    const vol4h   = await fetchJSON(`http://localhost:${PORT}/volume-usd/${symbol}/4h`,   { volume: 0 });
-    const vol1h   = await fetchJSON(`http://localhost:${PORT}/volume-usd/${symbol}/1h`,   { volume: 0 });
+  const vol5m   = await getVolumeInterno(symbol, "5m");
+  const vol15m  = await getVolumeInterno(symbol, "15m");
+  const vol1d   = await getVolumeInterno(symbol, "1d");
+  const vol4h   = await getVolumeInterno(symbol, "4h");
+  const vol1h   = await getVolumeInterno(symbol, "1h");
 
     // ==== VARIAÇÃO ====
-    const variacao1m  = await fetchJSON(`http://localhost:${PORT}/variacao/${symbol}/1m`,  { value: null });
-    const variacao5m  = await fetchJSON(`http://localhost:${PORT}/variacao/${symbol}/5m`,  { value: null });
-    const variacao15m  = await fetchJSON(`http://localhost:${PORT}/variacao/${symbol}/15m`,  { value: null });
-    const variacao30m  = await fetchJSON(`http://localhost:${PORT}/variacao/${symbol}/30m`,  { value: null });
-    const variacao4h = await fetchJSON(`http://localhost:${PORT}/variacao/${symbol}/4h`, { value: null });
-    const variacao1h  = await fetchJSON(`http://localhost:${PORT}/variacao/${symbol}/1h`,  { value: null });
-    const variacao1d  = await fetchJSON(`http://localhost:${PORT}/variacao/${symbol}/1d`,  { value: null });
-    const variacao1w  = await fetchJSON(`http://localhost:${PORT}/variacao/${symbol}/1w`,  { value: null });
+    const variacao1m  = await getVariacaoInterno(symbol, "1m");
+    const variacao5m  = await getVariacaoInterno(symbol, "5m");
+    const variacao15m = await getVariacaoInterno(symbol, "15m");
+    const variacao30m = await getVariacaoInterno(symbol, "30m");
+    const variacao4h  = await getVariacaoInterno(symbol, "4h");
+    const variacao1h  = await getVariacaoInterno(symbol, "1h");
+    const variacao1d  = await getVariacaoInterno(symbol, "1d");
+    const variacao1w  = await getVariacaoInterno(symbol, "1w");
 
    
     const norm = (o) => ({
