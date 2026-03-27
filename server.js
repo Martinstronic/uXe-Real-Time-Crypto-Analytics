@@ -750,7 +750,50 @@ async function getVolumeLoteInterno(symbols = [], interval) {
 
 
 
+function sendVisualHistoryToClient(ws, symbol, tf = VISUAL_BOOTSTRAP_TF, limit = VISUAL_BOOTSTRAP_LIMIT) {
+  try {
+    const s = String(symbol || "").toUpperCase();
+    const hist = cacheCandles[s]?.[tf];
+    if (!Array.isArray(hist) || hist.length === 0) return false;
 
+    ws.send(JSON.stringify({
+      type: "candle_hist",
+      symbol: s,
+      tf,
+      candles: hist.slice(-limit).map(c => ({
+        open: c.open,
+        close: c.close,
+        vol: c.vol,
+        exp: Number.isFinite(c.exp) ? c.exp : 50,
+        volRel: Number.isFinite(c.volRel) ? c.volRel : 1,
+        ts: c.ts
+      }))
+    }));
+
+
+    const ult = cacheCandles[symbol]?.[VISUAL_BOOTSTRAP_TF]?.slice(-1)[0];
+if (ult) {
+  try {
+    ws.send(JSON.stringify({
+      type: "candle",
+      symbol,
+      tf: VISUAL_BOOTSTRAP_TF,
+      open: ult.open,
+      close: ult.close,
+      vol: ult.vol,
+      ts: ult.ts,
+      exp: Number.isFinite(ult.exp) ? ult.exp : 50,
+      volRel: Number.isFinite(ult.volRel) ? ult.volRel : 1
+    }));
+  } catch {}
+}
+
+    return true;
+  } catch (err) {
+    console.warn(`⚠️ sendVisualHistoryToClient falhou ${symbol}:`, err.message || err);
+    return false;
+  }
+}
 
 
 
@@ -1758,6 +1801,31 @@ async function atualizarTopRadar() {
   }
 }
 
+async function warmVisualHistoryForTopSymbols() {
+  try {
+    const lista = Array.from(top50Volume || []).slice(0, 50);
+    if (!lista.length) {
+      console.warn("⚠️ warmVisualHistoryForTopSymbols: top50Volume ainda vazio.");
+      return;
+    }
+
+    console.log(`🎨 Iniciando warmup visual de ${lista.length} símbolos (${VISUAL_BOOTSTRAP_TF})...`);
+
+    for (let i = 0; i < lista.length; i++) {
+      const symbol = lista[i];
+      await warmVisualHistoryForSymbol(symbol, VISUAL_BOOTSTRAP_TF, VISUAL_BOOTSTRAP_LIMIT);
+
+      if (i < lista.length - 1) {
+        await new Promise(r => setTimeout(r, 350));
+      }
+    }
+
+    console.log(`✅ Warmup visual concluído para ${lista.length} símbolos.`);
+  } catch (err) {
+    console.warn("⚠️ warmVisualHistoryForTopSymbols falhou:", err.message || err);
+  }
+}
+
 async function inicializarServer() {
   await carregarContratosFuturos();
   console.log("✅ Contratos futuros carregados, iniciando TopRadar...");
@@ -1769,6 +1837,10 @@ async function inicializarServer() {
     console.log("🔄 Refresh programado do TopRadar (2h)");
     await atualizarTopRadar();
   }, 2 * 60 * 60 * 1000);
+
+    setTimeout(() => {
+    warmVisualHistoryForTopSymbols().catch(console.error);
+    }, 12_000);
 
   // inicia WS Binance somente com os símbolos já em cache
   setTimeout(() => {
@@ -2784,6 +2856,57 @@ function iniciarWSLiquidados() {
 }
 
 
+async function warmVisualHistoryForSymbol(symbol, tf = VISUAL_BOOTSTRAP_TF, limit = VISUAL_BOOTSTRAP_LIMIT) {
+  const s = String(symbol || "").toUpperCase();
+  const key = `${s}:${tf}:${limit}`;
+
+  const atual = cacheCandles[s]?.[tf];
+  if (Array.isArray(atual) && atual.length >= Math.min(limit, 20)) {
+    return atual.slice(-limit);
+  }
+
+  if (visualBootstrapInFlight.has(key)) {
+    return visualBootstrapInFlight.get(key);
+  }
+
+  const promise = (async () => {
+    try {
+      const kl = await fetchKlinesWithFallback(s, tf, "futures", limit);
+      if (!Array.isArray(kl) || !kl.length) return [];
+
+      if (!cacheCandles[s]) cacheCandles[s] = {};
+      if (!Array.isArray(cacheCandles[s][tf])) cacheCandles[s][tf] = [];
+
+      cacheCandles[s][tf] = kl.map(k => ({
+        open: parseFloat(k[1]),
+        close: parseFloat(k[4]),
+        vol: parseFloat(k[7] ?? k[5] ?? 0),
+        ts: Number(k[6] ?? k[0] ?? Date.now()),
+        exp: 50,
+        volRel: 1
+      })).filter(c =>
+        Number.isFinite(c.open) &&
+        Number.isFinite(c.close) &&
+        Number.isFinite(c.vol) &&
+        Number.isFinite(c.ts)
+      );
+
+      if (cacheCandles[s][tf].length > 300) {
+        cacheCandles[s][tf] = cacheCandles[s][tf].slice(-300);
+      }
+
+      return cacheCandles[s][tf].slice(-limit);
+    } catch (err) {
+      console.warn(`⚠️ warmVisualHistoryForSymbol falhou ${s} ${tf}:`, err.message || err);
+      return [];
+    } finally {
+      visualBootstrapInFlight.delete(key);
+    }
+  })();
+
+  visualBootstrapInFlight.set(key, promise);
+  return promise;
+}
 // ===============================[ 19) INICIALIZA WS ]===============================
 
 
@@ -2793,7 +2916,10 @@ const binanceStreams = new Map();
 
 
 const cacheTicker = new Map();
-const cacheCandles = {};      
+const cacheCandles = {};   
+const VISUAL_BOOTSTRAP_TF = "5m";
+const VISUAL_BOOTSTRAP_LIMIT = 30;
+const visualBootstrapInFlight = new Map();
 
 
 // ==========================================
@@ -3140,6 +3266,26 @@ wss.on("connection", (ws) => {
       console.warn("⚠️ Erro WS client:", e.message);
     }
   });
+
+  if (msg?.action === "subscribe" && Array.isArray(msg.symbols)) {
+  const symbols = [...new Set(msg.symbols.map(s => String(s || "").toUpperCase()))]
+    .filter(Boolean)
+    .slice(0, 120);
+
+  for (const symbol of symbols) {
+    const enviadoDoCache = sendVisualHistoryToClient(ws, symbol, VISUAL_BOOTSTRAP_TF, VISUAL_BOOTSTRAP_LIMIT);
+
+    if (!enviadoDoCache) {
+      warmVisualHistoryForSymbol(symbol, VISUAL_BOOTSTRAP_TF, VISUAL_BOOTSTRAP_LIMIT)
+        .then(() => {
+          sendVisualHistoryToClient(ws, symbol, VISUAL_BOOTSTRAP_TF, VISUAL_BOOTSTRAP_LIMIT);
+        })
+        .catch(err => {
+          console.warn(`⚠️ Falha bootstrap visual pós-subscribe ${symbol}:`, err.message || err);
+        });
+    }
+  }
+}  
 
   ws.on("close", () => {
     clientesAtivos.delete(ws);
