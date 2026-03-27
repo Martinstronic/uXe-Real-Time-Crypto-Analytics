@@ -2007,6 +2007,7 @@ function conectarWSServidor() {
   // força atualização incremental das colunas de variação
   try {
     atualizarPrecoVariacao(symbol);
+    console.log("📈 ticker recebido", symbol, preco);
   } catch {}
 
   return;
@@ -2333,9 +2334,42 @@ function atualizarPrecoVariacao(symbol) {
 
       if (variacao1m > antigoValor) flashElemento(var1mEl, "flash-green");
       else if (variacao1m < antigoValor) flashElemento(var1mEl, "flash-red");
+
+      function aplicarVariacaoNaColuna(row, className, valor) {
+    const el = row.querySelector(className);
+    if (!el) return;
+  
+    if (valor === null || isNaN(valor)) {
+      el.textContent = "n/d";
+      el.className = className.replace(".", "");
+      return;
+    }
+  
+    const antigoValor = parseFloat(el.dataset.valor) || 0;
+    el.textContent = valor.toFixed(2) + "%";
+    el.dataset.valor = valor;
+    el.className = `${className.replace(".", "")} ${valor > 0 ? "up" : valor < 0 ? "down" : ""}`;
+  
+    if (valor > antigoValor) flashElemento(el, "flash-green");
+    else if (valor < antigoValor) flashElemento(el, "flash-red");
+  }
+
+const variacao5m  = calcularVariacaoIncremental(symbol, 5, precoNum);
+const variacao15m = calcularVariacaoIncremental(symbol, 15, precoNum);
+const variacao30m = calcularVariacaoIncremental(symbol, 30, precoNum);
+const variacao1h  = calcularVariacaoIncremental(symbol, 60, precoNum);
+
+aplicarVariacaoNaColuna(row, ".col-var-5m", variacao5m);
+aplicarVariacaoNaColuna(row, ".col-var-15m", variacao15m);
+aplicarVariacaoNaColuna(row, ".col-var-30m", variacao30m);
+aplicarVariacaoNaColuna(row, ".col-var-1h", variacao1h);
+      
     }
   }
 }
+
+
+    
 
 
 function flashElemento(el, classe) {
