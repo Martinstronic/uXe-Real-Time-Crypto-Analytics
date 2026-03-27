@@ -137,6 +137,140 @@ app.post("/alertas-preco", express.json(), (req, res) => {
 });
 
 
+// =====================[ PROTEÇÃO GLOBAL REST ]=====================
+
+const inFlightRequests = new Map();
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function dedupedRequest(key, fn) {
+  if (inFlightRequests.has(key)) {
+    return inFlightRequests.get(key);
+  }
+
+  const p = (async () => {
+    try {
+      return await fn();
+    } finally {
+      inFlightRequests.delete(key);
+    }
+  })();
+
+  inFlightRequests.set(key, p);
+  return p;
+}
+
+class RequestQueue {
+  constructor(maxConcurrent = 3, minDelayMs = 220) {
+    this.maxConcurrent = maxConcurrent;
+    this.minDelayMs = minDelayMs;
+    this.running = 0;
+    this.queue = [];
+    this.lastStartedAt = 0;
+  }
+
+  add(task, meta = {}) {
+    return new Promise((resolve, reject) => {
+      this.queue.push({ task, resolve, reject, meta });
+      this.next();
+    });
+  }
+
+  next() {
+    if (this.running >= this.maxConcurrent) return;
+    if (this.queue.length === 0) return;
+
+    const now = Date.now();
+    const wait = Math.max(0, this.minDelayMs - (now - this.lastStartedAt));
+
+    setTimeout(async () => {
+      if (this.running >= this.maxConcurrent) return;
+      if (this.queue.length === 0) return;
+
+      const item = this.queue.shift();
+      this.running++;
+      this.lastStartedAt = Date.now();
+
+      try {
+        const out = await item.task();
+        item.resolve(out);
+      } catch (err) {
+        item.reject(err);
+      } finally {
+        this.running--;
+        this.next();
+      }
+    }, wait);
+  }
+}
+
+const binanceRestQueue = new RequestQueue(2, 250);
+
+let binanceCooldownUntil = 0;
+let lastBinance429At = 0;
+let consecutive429 = 0;
+
+function getBinanceCooldownMs() {
+  return Math.max(0, binanceCooldownUntil - Date.now());
+}
+
+function registerBinanceThrottle(status, url = "") {
+  const now = Date.now();
+
+  if (status === 418) {
+    binanceCooldownUntil = Math.max(binanceCooldownUntil, now + 10 * 60_000);
+    console.warn(`🛑 Binance 418 detectado. Cooldown global de 10 minutos. URL: ${url}`);
+    return;
+  }
+
+  if (status === 429) {
+    if (now - lastBinance429At < 30_000) {
+      consecutive429 += 1;
+    } else {
+      consecutive429 = 1;
+    }
+
+    lastBinance429At = now;
+
+    const delay = Math.min(60_000, 4_000 * consecutive429);
+    binanceCooldownUntil = Math.max(binanceCooldownUntil, now + delay);
+
+    console.warn(`⚠️ Binance 429 detectado. Cooldown global de ${delay}ms. URL: ${url}`);
+  }
+}
+
+async function guardedBinanceRequest(url, opts = {}, meta = {}) {
+  return binanceRestQueue.add(async () => {
+    const cooldownMs = getBinanceCooldownMs();
+    if (cooldownMs > 0) {
+      throw new Error(`BINANCE_COOLDOWN_${cooldownMs}`);
+    }
+
+    try {
+      const resp = await axios({
+        url,
+        timeout: 20_000,
+        headers: {
+          "User-Agent": "Mozilla/5.0",
+          ...(opts.headers || {})
+        },
+        ...opts
+      });
+
+      consecutive429 = 0;
+      return resp.data;
+    } catch (err) {
+      const status = err?.response?.status;
+      if (status === 418 || status === 429) {
+        registerBinanceThrottle(status, url);
+      }
+      throw err;
+    }
+  }, meta);
+}
+
 /* =========================[ AXIOS + USER-AGENT + PAG INICIAL ]========================== */
 const api = axios.create({
   headers: {
@@ -269,6 +403,7 @@ async function fetchJSON(url, fallback = null) {
 const marketSupportCache = new Map(); // symbol -> { futures: true/false, spot: true/false }
 const invalidSymbols = new Set();
 
+
 async function fetchKlinesWithFallback(symbol, interval, preferredMarket = "futures", limit = 60) {
   if (invalidSymbols.has(symbol)) return [];
 
@@ -304,35 +439,39 @@ async function fetchKlinesWithFallback(symbol, interval, preferredMarket = "futu
   for (const attempt of attempts) {
     if (!attempt.enabled) continue;
 
+    const reqKey = `klines:${attempt.name}:${symbol}:${interval}:${limit}`;
+
     try {
-      const response = await fetch(attempt.url, {
-        headers: {
-          "User-Agent": "Mozilla/5.0"
-        }
+      const data = await dedupedRequest(reqKey, async () => {
+        return await fetchWithBackoff(attempt.url, {}, 1);
       });
 
-      if (!response.ok) {
-        const status = response.status;
-
-        if (status === 400 || status === 418) {
-          const cur = marketSupportCache.get(symbol) || { futures: true, spot: true };
-          cur[attempt.name] = false;
-          marketSupportCache.set(symbol, cur);
-
-          if (!cur.futures && !cur.spot) {
-            invalidSymbols.add(symbol);
-            console.warn(`🚫 Símbolo invalidado para klines: ${symbol}`);
-          }
-        }
-
-        throw new Error(`HTTP ${status}`);
-      }
-
-      const data = await response.json();
       if (Array.isArray(data) && data.length > 0) {
+        const cur = marketSupportCache.get(symbol) || { futures: true, spot: true };
+        cur[attempt.name] = true;
+        marketSupportCache.set(symbol, cur);
         return data;
       }
     } catch (err) {
+      const status = err?.response?.status;
+      const msg = err?.message || "";
+
+      if (status === 400 || status === 418) {
+        const cur = marketSupportCache.get(symbol) || { futures: true, spot: true };
+        cur[attempt.name] = false;
+        marketSupportCache.set(symbol, cur);
+
+        if (!cur.futures && !cur.spot) {
+          invalidSymbols.add(symbol);
+          console.warn(`🚫 Símbolo invalidado para klines: ${symbol}`);
+        }
+      }
+
+      if (msg.startsWith("BINANCE_COOLDOWN_")) {
+        console.warn(`⏸️ fetchKlinesWithFallback em cooldown para ${symbol} ${interval}`);
+        return [];
+      }
+
       console.error(`❌ fetchKlinesWithFallback (${symbol}, ${attempt.name}) ${err.message}`);
     }
   }
@@ -340,18 +479,31 @@ async function fetchKlinesWithFallback(symbol, interval, preferredMarket = "futu
   return [];
 }
 
-
 async function fetchWithBackoff(url, opts = {}, retries = 3) {
   for (let i = 0; i <= retries; i++) {
     try {
-      const resp = await axios({ url, ...opts, timeout: 20000 });
-      return resp.data;
+      const data = await guardedBinanceRequest(url, opts, { kind: "generic" });
+      return data;
     } catch (err) {
       const status = err?.response?.status;
+      const msg = err?.message || "";
+
+      if (msg.startsWith("BINANCE_COOLDOWN_")) {
+        const wait = Math.min(15_000, Number(msg.replace("BINANCE_COOLDOWN_", "")) || 5_000);
+        console.warn(`⏸️ fetchWithBackoff aguardando cooldown global por ${Math.round(wait / 1000)}s`);
+        await sleep(wait);
+        continue;
+      }
+
+      if (status === 418) {
+        throw err;
+      }
+
       if (i === retries) throw err;
-      const wait = 1500 * Math.pow(2, i) + Math.round(Math.random()*200);
-      console.warn(`⏳ fetchWithBackoff ${url} failed (${status || err.message}). retry em ${Math.round(wait/1000)}s`);
-      await new Promise(r => setTimeout(r, wait));
+
+      const wait = 1500 * Math.pow(2, i) + Math.round(Math.random() * 200);
+      console.warn(`⏳ fetchWithBackoff ${url} failed (${status || err.message}). retry em ${Math.round(wait / 1000)}s`);
+      await sleep(wait);
     }
   }
 }
@@ -379,7 +531,7 @@ async function fetchKlinesCached(symbol, interval, prefer = "futures", limit = 2
   }
 
   try {
-    const data = await fetchKlinesWithFallback(symbol, interval, prefer);
+    const data = await fetchKlinesWithFallback(symbol, interval, prefer, limit);
     if (data) {
       klinesCache.set(key, { ts: now, data });
     }
@@ -560,22 +712,24 @@ async function getPrecoInterno(symbol) {
 async function getFundingInterno(symbol) {
   const s = String(symbol || "").toUpperCase();
   try {
-    return await getWithCache(
-      `funding-${s}`,
-      7_200_000,
-      async () => {
-        try {
-          const url = `${BINANCE_FUTURES}/premiumIndex?symbol=${s}`;
-          const resp = await fetchWithBackoff(url, {}, 2);
-          return {
-            fundingRate: Number(resp?.lastFundingRate ?? resp?.fundingRate ?? 0),
-            ts: Date.now()
-          };
-        } catch {
-          return { fundingRate: 0, ts: Date.now() };
+    return await dedupedRequest(`funding:${s}`, async () => {
+      return await getWithCache(
+        `funding-${s}`,
+        7_200_000,
+        async () => {
+          try {
+            const url = `${BINANCE_FUTURES}/premiumIndex?symbol=${s}`;
+            const resp = await fetchWithBackoff(url, {}, 2);
+            return {
+              fundingRate: Number(resp?.lastFundingRate ?? resp?.fundingRate ?? 0),
+              ts: Date.now()
+            };
+          } catch {
+            return { fundingRate: 0, ts: Date.now() };
+          }
         }
-      }
-    );
+      );
+    });
   } catch {
     return { fundingRate: 0, ts: Date.now() };
   }
@@ -584,12 +738,14 @@ async function getFundingInterno(symbol) {
 async function getLSRInterno(symbol) {
   const s = String(symbol || "").toUpperCase();
   try {
-    let data = getLSRFromCache(s);
-    if (!data) {
-      data = await fetchLSR(s);
-      setLSRCache(s, data);
-    }
-    return data;
+    return await dedupedRequest(`lsr:${s}`, async () => {
+      let data = getLSRFromCache(s);
+      if (!data) {
+        data = await fetchLSR(s);
+        setLSRCache(s, data);
+      }
+      return data;
+    });
   } catch {
     return { symbol: s, longShortRatio: 0, hist: [] };
   }
@@ -598,12 +754,14 @@ async function getLSRInterno(symbol) {
 async function getLSARInterno(symbol) {
   const s = String(symbol || "").toUpperCase();
   try {
-    let data = getLSARFromCache(s);
-    if (!data) {
-      data = await fetchLSAR(s);
-      setLSARCache(s, data);
-    }
-    return data;
+    return await dedupedRequest(`lsar:${s}`, async () => {
+      let data = getLSARFromCache(s);
+      if (!data) {
+        data = await fetchLSAR(s);
+        setLSARCache(s, data);
+      }
+      return data;
+    });
   } catch {
     return { symbol: s, ratio: 0, hist: [] };
   }
@@ -612,12 +770,14 @@ async function getLSARInterno(symbol) {
 async function getLSPRInterno(symbol) {
   const s = String(symbol || "").toUpperCase();
   try {
-    let data = getLSPRFromCache(s);
-    if (!data) {
-      data = await fetchLSPR(s);
-      setLSPRCache(s, data);
-    }
-    return data;
+    return await dedupedRequest(`lspr:${s}`, async () => {
+      let data = getLSPRFromCache(s);
+      if (!data) {
+        data = await fetchLSPR(s);
+        setLSPRCache(s, data);
+      }
+      return data;
+    });
   } catch {
     return { symbol: s, ratio: 0, hist: [] };
   }
@@ -626,12 +786,14 @@ async function getLSPRInterno(symbol) {
 async function getVolumeInterno(symbol, interval) {
   const s = String(symbol || "").toUpperCase();
   try {
-    let data = getVolumeFromCache(s, interval);
-    if (!data) {
-      data = await fetchVolume(s, interval);
-      setVolumeCache(s, interval, data);
-    }
-    return data;
+    return await dedupedRequest(`volume:${s}:${interval}`, async () => {
+      let data = getVolumeFromCache(s, interval);
+      if (!data) {
+        data = await fetchVolume(s, interval);
+        setVolumeCache(s, interval, data);
+      }
+      return data;
+    });
   } catch {
     return { volume: 0 };
   }
@@ -703,16 +865,7 @@ async function getOiLoteInterno(symbols = []) {
   for (const raw of symbols) {
     const symbol = String(raw || "").toUpperCase();
     try {
-      const cached = getOiFromCache(symbol);
-      if (cached) {
-        results[symbol] = cached;
-      } else {
-        const data = await fetchOiCompleto(symbol);
-        setOiCache(symbol, data);
-        results[symbol] = data;
-      }
-
-      await new Promise(r => setTimeout(r, 250));
+      results[symbol] = await getOiInterno(symbol);
     } catch {
       results[symbol] = {
         symbol,
@@ -727,6 +880,8 @@ async function getOiLoteInterno(symbols = []) {
         var1h: 0
       };
     }
+
+    await sleep(220);
   }
 
   return results;
@@ -748,6 +903,33 @@ async function getVolumeLoteInterno(symbols = [], interval) {
   return results;
 }
 
+async function getOiInterno(symbol) {
+  const s = String(symbol || "").toUpperCase();
+
+  try {
+    return await dedupedRequest(`oi:${s}`, async () => {
+      const cached = getOiFromCache(s);
+      if (cached) return cached;
+
+      const data = await fetchOiCompleto(s);
+      setOiCache(s, data);
+      return data;
+    });
+  } catch {
+    return {
+      symbol: s,
+      sumOpenInterest: 0,
+      oiUsd: 0,
+      hist: [],
+      hist1h: [],
+      var1m: 0,
+      var3m: 0,
+      var5m: 0,
+      var15m: 0,
+      var1h: 0
+    };
+  }
+}
 
 
 function sendVisualHistoryToClient(ws, symbol, tf = VISUAL_BOOTSTRAP_TF, limit = VISUAL_BOOTSTRAP_LIMIT) {
@@ -1002,27 +1184,24 @@ async function atualizarRSI(symbol, prioridade = "mid") {
   }
 }
 
-
-
 function enqueueRSI(symbol, prioridade = 'high') {
-if (!symbol) return;
-prioridade = ['high','mid','low'].includes(prioridade) ? prioridade : 'mid';
+  if (!symbol) return;
 
+  prioridade = ['high','mid','low'].includes(prioridade) ? prioridade : 'mid';
+  const s = String(symbol).toUpperCase();
 
+  const hasFresh1m = !!getRsiCacheEntry(s, '1m');
+  const hasFresh5m = !!getRsiCacheEntry(s, '5m');
 
-const tf = '1m';
-if (getRsiCacheEntry(symbol, tf)) return;
+  if (hasFresh1m && hasFresh5m) return;
 
+  for (const q of Object.keys(rsiQueues)) {
+    if (q !== prioridade) rsiQueues[q].delete(s);
+  }
 
-
-for (const q of Object.keys(rsiQueues)) {
-if (q !== prioridade) rsiQueues[q].delete(symbol);
+  rsiQueues[prioridade].add(s);
+  processRsiQueues().catch(e => console.error('RSI queue error:', e));
 }
-rsiQueues[prioridade].add(symbol);
-// start process
-processRsiQueues().catch(e => console.error('RSI queue error:', e));
-}
-
 
 
 async function processRsiQueues() {
@@ -1185,17 +1364,17 @@ function chunkArray(arr, size) {
   return chunks;
 }
 
-
 async function processarBatch(symbols) {
   if (!symbols.length) return;
 
-  await Promise.allSettled(symbols.map(async (symbol) => {
+  for (const symbol of symbols) {
     try {
       let oiData = getOiFromCache(symbol);
       if (!oiData) {
         oiData = await fetchOiCompleto(symbol);
         setOiCache(symbol, oiData);
       }
+
       if (oiData?.sumOpenInterest) {
         atualizarOiNowHistory(symbol, oiData.sumOpenInterest);
         await radarOIProcessar(symbol, oiData);
@@ -1203,7 +1382,9 @@ async function processarBatch(symbols) {
     } catch (err) {
       console.warn(`⚠️ Cron OI falhou em ${symbol}:`, err.message);
     }
-  }));
+
+    await sleep(180);
+  }
 }
 
 
@@ -1257,128 +1438,118 @@ criarCron(rest, 90_000, "201+");
 
 
 // =====================[ FETCH OI BINANCE + NOW ]======================
+
 async function fetchOiCompleto(symbol) {
-  try {
-   
-    const fetchOI = async (period, limit) => {
+  const s = String(symbol || "").toUpperCase();
+
+  return dedupedRequest(`oi-completo:${s}`, async () => {
+    try {
+      const fetchOI = async (period, limit) => {
+        try {
+          const url = `https://fapi.binance.com/futures/data/openInterestHist?symbol=${s}&period=${period}&limit=${limit}`;
+          const data = await fetchWithBackoff(url, {}, 2);
+          return Array.isArray(data) ? data : [];
+        } catch {
+          return [];
+        }
+      };
+
+      const [data5m, data1h] = await Promise.all([
+        fetchOI("5m", 20),
+        fetchOI("1h", 20)
+      ]);
+
+      const hist5m = (data5m || []).map(d => parseFloat(d.sumOpenInterest)).filter(Number.isFinite);
+      const hist1h = (data1h || []).map(d => parseFloat(d.sumOpenInterest)).filter(Number.isFinite);
+
+      const sumOpenInterest = hist5m.at(-1) || 0;
+
+      let precoAtual = 0;
       try {
-        const { data } = await axios.get(
-          "https://fapi.binance.com/futures/data/openInterestHist",
-          { params: { symbol, period, limit } }
-        );
-        return data;
-      } catch {
-        return [];
+        const precoData = await getPrecoInterno(s);
+        precoAtual = Number(precoData?.preco || 0);
+      } catch {}
+
+      const oiUsd = +(sumOpenInterest * precoAtual).toFixed(2);
+
+      function smooth(values, n = 3) {
+        if (!values || values.length < n) return values?.at(-1) || 0;
+        return values.slice(-n).reduce((a, b) => a + b, 0) / n;
       }
-    };
 
-    
-    const [data5m, data1h] = await Promise.all([
-      fetchOI("5m", 20),
-      fetchOI("1h", 20)
-    ]);
+      function calcularVar(symbol, minutos) {
+        const arr = oiNowHistory[symbol] || [];
+        if (arr.length < 2) return 0;
 
-    const hist5m = (data5m || []).map(d => parseFloat(d.sumOpenInterest)).filter(Number.isFinite);
-    const hist1h = (data1h || []).map(d => parseFloat(d.sumOpenInterest)).filter(Number.isFinite);
+        const cutoff = Date.now() - minutos * 60_000;
+        const atual = arr.at(-1);
 
-    const sumOpenInterest = hist5m.at(-1) || 0;
+        let antigo = arr[0];
+        for (const h of arr) {
+          if (h.ts <= cutoff) antigo = h;
+          else break;
+        }
 
-    
-   let precoAtual = 0;
-  try {
-    const precoData = await getPrecoInterno(symbol);
-    precoAtual = Number(precoData?.preco || 0);
-  } catch {}
+        if (antigo && atual && antigo.oi > 0) {
+          const pct = ((atual.oi - antigo.oi) / antigo.oi) * 100;
+          return smooth([pct], 1);
+        }
+        return 0;
+      }
 
-    const oiUsd = +(sumOpenInterest * precoAtual).toFixed(2);
+      const var1m = +calcularVar(s, 1).toFixed(2);
+      const var3m = +calcularVar(s, 3).toFixed(2);
 
-    
-    function smooth(values, n = 3) {
-      if (!values || values.length < n) return values?.at(-1) || 0;
-      return values.slice(-n).reduce((a, b) => a + b, 0) / n;
-    }
-
-    
-    function calcularVar(symbol, minutos) {
-      const arr = oiNowHistory[symbol] || [];
-      if (arr.length < 2) return 0;
-
-      const cutoff = Date.now() - minutos * 60_000;
-      const atual = arr.at(-1);
-
-      
-      let antigo = arr[0];
-      for (const h of arr) {
-        if (h.ts <= cutoff) {
-          antigo = h;
-        } else {
-          break;
+      let var5m = calcularVar(s, 5);
+      if (data5m?.length >= 2) {
+        const prev = parseFloat(data5m.at(-2).sumOpenInterest);
+        const last = parseFloat(data5m.at(-1).sumOpenInterest);
+        if (prev > 0 && last > 0) {
+          var5m = ((last - prev) / prev) * 100;
         }
       }
 
-      if (antigo && atual && antigo.oi > 0) {
-        const pct = ((atual.oi - antigo.oi) / antigo.oi) * 100;
-        return smooth([pct], 1); 
-      }
-      return 0;
+      const extrairVaria = (arr, back = 1) => {
+        const hist = (arr || []).map(d => parseFloat(d.sumOpenInterest)).filter(Number.isFinite);
+        if (hist.length >= back + 1 && hist.at(-back - 1) > 0) {
+          return ((hist.at(-1) - hist.at(-back - 1)) / hist.at(-back - 1)) * 100;
+        }
+        return 0;
+      };
+
+      const var15m = +extrairVaria(data5m, 3).toFixed(2);
+      const var1hCalc = +extrairVaria(data1h, 3).toFixed(2);
+
+      return {
+        symbol: s,
+        sumOpenInterest,
+        oiUsd,
+        hist: hist5m,
+        hist1h,
+        var1m,
+        var3m,
+        var5m: +var5m.toFixed(2),
+        var15m,
+        var1h: var1hCalc
+      };
+    } catch (err) {
+      console.error("❌ Erro fetchOiCompleto", s, err.message);
+      return {
+        symbol: s,
+        sumOpenInterest: 0,
+        oiUsd: 0,
+        hist: [],
+        hist1h: [],
+        var1m: 0,
+        var3m: 0,
+        var5m: 0,
+        var15m: 0,
+        var1h: 0
+      };
     }
-
-   
-    const var1m = +calcularVar(symbol, 1).toFixed(2);
-    const var3m = +calcularVar(symbol, 3).toFixed(2);
-
-    
-    let var5m = calcularVar(symbol, 5);
-    if (data5m?.length >= 2) {
-      const prev = parseFloat(data5m.at(-2).sumOpenInterest);
-      const last = parseFloat(data5m.at(-1).sumOpenInterest);
-      if (prev > 0 && last > 0) {
-        var5m = ((last - prev) / prev) * 100;
-      }
-    }
-
-    
-    const extrairVaria = (arr, back = 1) => {
-      const hist = (arr || []).map(d => parseFloat(d.sumOpenInterest)).filter(Number.isFinite);
-      if (hist.length >= back + 1 && hist.at(-back - 1) > 0) {
-        return ((hist.at(-1) - hist.at(-back - 1)) / hist.at(-back - 1)) * 100;
-      }
-      return 0;
-    };
-
-    const var15m = +extrairVaria(data5m, 3).toFixed(2); // ~15m
-    const var1hCalc = +extrairVaria(data1h, 3).toFixed(2); // ~3h
-
-    
-
-    return {
-      symbol,
-      sumOpenInterest,
-      oiUsd,
-      hist: hist5m,
-      hist1h,
-      var1m,
-      var3m,
-      var5m: +var5m.toFixed(2),
-      var15m,
-      var1h: var1hCalc
-    };
-  } catch (err) {
-    console.error("❌ Erro fetchOiCompleto", symbol, err.message);
-    return {
-      symbol,
-      sumOpenInterest: 0,
-      oiUsd: 0,
-      hist: [],
-      hist1h: [],
-      var1m: 0,
-      var3m: 0,
-      var5m: 0,
-      var15m: 0,
-      var1h: 0
-    };
-  }
+  });
 }
+
 
 
 
@@ -1395,7 +1566,6 @@ app.get("/oi/:symbol", async (req, res) => {
 
     console.log(`⚡ FETCH REAL OI para ${symbol}`);
     const oiData = await fetchOiCompleto(symbol);
-    setOiCache(symbol, oiData);
     res.json(oiData);
   } catch (err) {
     console.error(`❌ Erro rota /oi ${symbol}`, err.message);
