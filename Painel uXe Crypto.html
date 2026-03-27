@@ -1975,7 +1975,7 @@ function conectarWSServidor() {
         return;
       }
 
-      if (msg.type === "ticker" && msg.symbol && msg.price != null) {
+  if (msg.type === "ticker" && msg.symbol && msg.price != null) {
   const symbol = normalizarSymbol(msg.symbol);
   const preco = Number(msg.price);
   if (!Number.isFinite(preco) || preco <= 0) return;
@@ -2007,7 +2007,7 @@ function conectarWSServidor() {
   // força atualização incremental das colunas de variação
   try {
     atualizarPrecoVariacao(symbol);
-    console.log("📈 ticker recebido", symbol, preco);
+    console.log("📈 ticker recebido do server:", msg.symbol, msg.price);
   } catch {}
 
   return;
@@ -2157,36 +2157,13 @@ function conectarWSServidor() {
   };
 }
 
-function iniciarWebSocketTicker(force = false) {
-  if (!Array.isArray(symbolsParaExibir) || symbolsParaExibir.length === 0) return;
 
-  const agora = Date.now();
-  if (!force && agora - ultimaInscricao < 5000) return;
-  ultimaInscricao = agora;
 
-  if (wsConectado && wsServer?.readyState === WebSocket.OPEN) {
-    const unicos = [...new Set(
-      symbolsParaExibir.map(s => String(s || "").toUpperCase())
-    )];
+//  onde havia um function iniciarWebSocketTick - removido dia 27/03 as 18h56
 
-    const lotes = [];
-    for (let i = 0; i < unicos.length; i += 100) {
-      lotes.push(unicos.slice(i, i + 100));
-    }
 
-    lotes.forEach((lote, idx) => {
-      setTimeout(() => {
-        if (wsServer?.readyState === WebSocket.OPEN) {
-          wsServer.send(JSON.stringify({ action: "subscribe", symbols: lote }));
-          console.log(`🛰️ [Ticker] Lote ${idx + 1}/${lotes.length} enviado (${lote.length} pares)`);
-        }
-      }, idx * 400);
-    });
-  } else {
-    console.warn("⚠️ WS servidor ainda não conectado. Reagendando inscrição...");
-    setTimeout(() => iniciarWebSocketTicker(true), 1500);
-  }
-}
+
+    
 
 setInterval(() => {
   if (!wsConectado && (!wsServer || wsServer.readyState >= 2)) {
@@ -2239,11 +2216,14 @@ function iniciarWebSocketTicker(force = false) {
   if (!Array.isArray(symbolsParaExibir) || symbolsParaExibir.length === 0) return;
 
   const agora = Date.now();
-  if (!force && agora - ultimaInscricao < 5_000) return;
+  if (!force && agora - ultimaInscricao < 5000) return;
   ultimaInscricao = agora;
 
   if (wsConectado && wsServer?.readyState === WebSocket.OPEN) {
-    const unicos = [...new Set(symbolsParaExibir.map(s => String(s).toUpperCase()))];
+    const unicos = [...new Set(
+      symbolsParaExibir.map(s => String(s || "").toUpperCase())
+    )];
+
     const lotes = [];
     for (let i = 0; i < unicos.length; i += 100) {
       lotes.push(unicos.slice(i, i + 100));
