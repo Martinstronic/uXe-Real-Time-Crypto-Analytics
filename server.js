@@ -3418,48 +3418,59 @@ function unsubscribeClient(ws) {
   }
 }
 
-wss.on("connection", (ws) => {
-  clientesAtivos.add(ws);
-  ws.on("message", (msg) => {
-    try {
-      const data = JSON.parse(msg);
-      if (data.action === "subscribe" && Array.isArray(data.symbols)) {
-        subscribeClient(ws, data.symbols);
-      } else if (data.action === "unsubscribe" && Array.isArray(data.symbols)) {
-        data.symbols.forEach(sym => {
-          const set = symbolSubscribers.get(sym.toUpperCase());
-          if (set) set.delete(ws);
-        });
+wss.on("connection", (ws, req) => {
+  try {
+    ws.on("message", async (raw) => {
+      let msg;
+      try {
+        msg = JSON.parse(raw.toString());
+      } catch (err) {
+        console.warn("⚠️ Mensagem WS inválida:", err.message);
+        return;
       }
-    } catch (e) {
-      console.warn("⚠️ Erro WS client:", e.message);
-    }
-  });
 
-  if (msg?.action === "subscribe" && Array.isArray(msg.symbols)) {
-  const symbols = [...new Set(msg.symbols.map(s => String(s || "").toUpperCase()))]
-    .filter(Boolean)
-    .slice(0, 120);
+      if (msg?.action === "subscribe" && Array.isArray(msg.symbols)) {
+        const symbols = [...new Set(
+          msg.symbols.map(s => String(s || "").toUpperCase())
+        )]
+          .filter(Boolean)
+          .slice(0, 120);
 
-  for (const symbol of symbols) {
-    const enviadoDoCache = sendVisualHistoryToClient(ws, symbol, VISUAL_BOOTSTRAP_TF, VISUAL_BOOTSTRAP_LIMIT);
+        ws.symbols = new Set(symbols);
 
-    if (!enviadoDoCache) {
-      warmVisualHistoryForSymbol(symbol, VISUAL_BOOTSTRAP_TF, VISUAL_BOOTSTRAP_LIMIT)
-        .then(() => {
-          sendVisualHistoryToClient(ws, symbol, VISUAL_BOOTSTRAP_TF, VISUAL_BOOTSTRAP_LIMIT);
-        })
-        .catch(err => {
-          console.warn(`⚠️ Falha bootstrap visual pós-subscribe ${symbol}:`, err.message || err);
-        });
-    }
+        for (const symbol of symbols) {
+          const enviadoDoCache = sendVisualHistoryToClient(
+            ws,
+            symbol,
+            VISUAL_BOOTSTRAP_TF,
+            VISUAL_BOOTSTRAP_LIMIT
+          );
+
+          if (!enviadoDoCache) {
+            warmVisualHistoryForSymbol(symbol, VISUAL_BOOTSTRAP_TF, VISUAL_BOOTSTRAP_LIMIT)
+              .then(() => {
+                sendVisualHistoryToClient(
+                  ws,
+                  symbol,
+                  VISUAL_BOOTSTRAP_TF,
+                  VISUAL_BOOTSTRAP_LIMIT
+                );
+              })
+              .catch(err => {
+                console.warn(`⚠️ Falha bootstrap visual pós-subscribe ${symbol}:`, err.message || err);
+              });
+          }
+        }
+
+        return;
+      }
+
+      // aqui ficam outros actions/tipos de mensagem que você já trata
+    });
+
+  } catch (err) {
+    console.error("❌ Erro no connection handler WS:", err.message);
   }
-}  
-
-  ws.on("close", () => {
-    clientesAtivos.delete(ws);
-    unsubscribeClient(ws);
-  });
 });
 
 
