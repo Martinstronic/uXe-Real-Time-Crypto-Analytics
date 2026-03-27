@@ -3111,10 +3111,7 @@ function configurarListenersBinance(ws, lote, idx) {
 
         const ultimo = cacheTicker.get(symbol);
         const agora = Date.now();
-
-       
-        const ultimo = cacheTicker.get(symbol);
-        const agora = Date.now();
+           
         
         const mudouPreco = !ultimo || price !== ultimo.price;
         const passouTempoMax = !ultimo || (agora - ultimo.ts > 1200);
