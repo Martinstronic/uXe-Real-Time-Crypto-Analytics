@@ -3113,13 +3113,23 @@ function configurarListenersBinance(ws, lote, idx) {
         const agora = Date.now();
 
        
-        if (!ultimo || Math.abs(price - ultimo.price) / ultimo.price > 0.0001 || agora - ultimo.ts > 5000) {
+        const ultimo = cacheTicker.get(symbol);
+        const agora = Date.now();
+        
+        const mudouPreco = !ultimo || price !== ultimo.price;
+        const passouTempoMax = !ultimo || (agora - ultimo.ts > 1200);
+        
+        if (mudouPreco || passouTempoMax) {
           cacheTicker.set(symbol, { price, ts: agora });
+        
           if (typeof precoCache !== "undefined" && precoCache?.set) {
             precoCache.set(symbol, price);
           }
+        
           broadcast({ type: "ticker", symbol, price });
         }
+
+        
       }
 
       
