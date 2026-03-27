@@ -1934,15 +1934,15 @@ function conectarWSServidor() {
     iniciarWebSocketTicker(true);
 
     if (Array.isArray(symbolsParaExibir) && symbolsParaExibir.length) {
+  const symbolsUnicos = [...new Set(symbolsParaExibir.map(s => String(s || "").toUpperCase()))];
+
       setTimeout(() => {
         if (wsServer.readyState === WebSocket.OPEN) {
-          wsServer.send(JSON.stringify({ action: "subscribe", symbols: symbolsParaExibir }));
-          console.log(`🛰️ Inscrição confirmada: ${symbolsParaExibir.length} pares`);
+          wsServer.send(JSON.stringify({ action: "subscribe", symbols: symbolsUnicos }));
+          console.log(`🛰️ Inscrição confirmada: ${symbolsUnicos.length} pares`);
         }
       }, 800);
     }
-  };
-
   // =====================================================
   // 🧠 RECEBIMENTO DAS MENSAGENS WEBSOCKET
   // =====================================================
@@ -2003,67 +2003,68 @@ function conectarWSServidor() {
       // =============================
       // 🕯️ Candle + Histórico local (sparks)
       // =============================
-      if (msg.type === "candle" && msg.symbol && msg.tf) {
-        const { symbol, tf, open, close, vol, ts, exp, volRel } = msg;
+    if (msg.type === "candle_hist") {
+  const { symbol, tf, candles } = msg;
+  if (tf !== "5m" || !Array.isArray(candles)) return;
 
-        if (!candlesCache[symbol]) candlesCache[symbol] = {};
-        if (!window.candlesHist) window.candlesHist = {};
-        if (!window.candlesHist[symbol]) window.candlesHist[symbol] = [];
+  if (!window.candlesHist) window.candlesHist = {};
+  if (!window.candlesCache) window.candlesCache = {};
 
-     
-        candlesCache[symbol][tf] = {
-          open: Number(open),
-          close: Number(close),
-          vol: Number(vol),
-          exp: Number.isFinite(Number(exp)) ? Number(exp) : 50,
-          volRel: Number.isFinite(Number(volRel)) ? Number(volRel) : 1,
-          ts: ts || Date.now()
-        };
+  const hist = candles
+    .map(c => ({
+      open: Number(c.open),
+      close: Number(c.close),
+      vol: Number(c.vol ?? 0),
+      exp: Number.isFinite(Number(c.exp)) ? Number(c.exp) : 50,
+      volRel: Number.isFinite(Number(c.volRel)) ? Number(c.volRel) : 1,
+      ts: Number(c.ts || Date.now())
+    }))
+    .filter(c =>
+      Number.isFinite(c.open) &&
+      Number.isFinite(c.close) &&
+      Number.isFinite(c.vol) &&
+      Number.isFinite(c.ts)
+    );
 
-       
-        if (tf === "5m") {
-          const hist = window.candlesHist[symbol];
-          const ultimo = hist[hist.length - 1];
-          const novo = {
-          open: Number(open),
-          close: Number(close),
-          vol: Number(vol ?? 0),
-          exp: Number.isFinite(Number(exp)) ? Number(exp) : 50,
-          volRel: Number.isFinite(Number(volRel)) ? Number(volRel) : 1,
-          ts: ts || Date.now()
-            };
+  window.candlesHist[symbol] = hist.slice(-30);
 
-          
-          if (!ultimo || Math.abs(novo.ts - ultimo.ts) > 240000) {
-            hist.push(novo);
-            if (hist.length > 30) hist.splice(0, hist.length - 30);
-          }
+  // sincroniza também o candle atual em candlesCache
+  const ultimo = window.candlesHist[symbol][window.candlesHist[symbol].length - 1];
+  if (ultimo) {
+    if (!window.candlesCache[symbol]) window.candlesCache[symbol] = {};
+    window.candlesCache[symbol]["5m"] = {
+      open: ultimo.open,
+      close: ultimo.close,
+      vol: ultimo.vol,
+      exp: ultimo.exp,
+      volRel: ultimo.volRel,
+      ts: ultimo.ts
+    };
+  }
 
-         
-          const linha = document.getElementById(`row-${symbol}`);
-          if (linha) {
-            const sparkCell = linha.querySelector(".col-spark");
-            if (sparkCell && typeof gerarSparkSVG === "function") {
-              const svg = gerarSparkSVG(hist, symbol);
-              if (svg && svg.trim() !== "") sparkCell.innerHTML = svg;
-            }
-          }
-        }
-
-        
-        const cell = document.getElementById(`candle-${tf}-${symbol}`);
-        if (cell) {
-          const c = candlesCache[symbol][tf];
-          const color = getCandleColor(c.open, c.close, c.exp, c.volRel);
-          cell.innerHTML = `
-            <svg width="20" height="20">
-              <rect x="2" y="2" width="16" height="16" rx="3" ry="3"
-                    fill="${color}" stroke="#111" stroke-width="1"/>
-            </svg>`;
-        }
-
-        return;
+  const linha = document.getElementById(`row-${symbol}`);
+  if (linha) {
+    const sparkCell = linha.querySelector(".col-spark");
+    if (sparkCell && typeof gerarSparkSVG === "function") {
+      const svg = gerarSparkSVG(window.candlesHist[symbol], symbol);
+      if (svg && svg.trim() !== "") {
+        sparkCell.innerHTML = svg;
       }
+    }
+  }
+
+  const cell = document.getElementById(`candle-5m-${symbol}`);
+  if (cell && ultimo && typeof getCandleColor === "function") {
+    const color = getCandleColor(ultimo.open, ultimo.close, ultimo.exp, ultimo.volRel);
+    cell.innerHTML = `
+      <svg width="20" height="20">
+        <rect x="2" y="2" width="16" height="16" rx="3" ry="3"
+              fill="${color}" stroke="#111" stroke-width="1"/>
+      </svg>`;
+  }
+
+  return;
+}
 
           
 
