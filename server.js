@@ -3111,8 +3111,7 @@ function configurarListenersBinance(ws, lote, idx) {
 
         const ultimo = cacheTicker.get(symbol);
         const agora = Date.now();
-           
-        
+                   
         const mudouPreco = !ultimo || price !== ultimo.price;
         const passouTempoMax = !ultimo || (agora - ultimo.ts > 1200);
         
@@ -3427,6 +3426,8 @@ function unsubscribeClient(ws) {
 
 wss.on("connection", (ws, req) => {
   try {
+    clientesAtivos.add(ws);
+
     ws.on("message", async (raw) => {
       let msg;
       try {
@@ -3444,6 +3445,9 @@ wss.on("connection", (ws, req) => {
           .slice(0, 120);
 
         ws.symbols = new Set(symbols);
+
+        // importante: registra o cliente por símbolo
+        subscribeClient(ws, symbols);
 
         for (const symbol of symbols) {
           const enviadoDoCache = sendVisualHistoryToClient(
@@ -3472,7 +3476,23 @@ wss.on("connection", (ws, req) => {
         return;
       }
 
-      // aqui ficam outros actions/tipos de mensagem que você já trata
+      if (msg?.action === "unsubscribe" && Array.isArray(msg.symbols)) {
+        msg.symbols.forEach(sym => {
+          const set = symbolSubscribers.get(String(sym || "").toUpperCase());
+          if (set) set.delete(ws);
+        });
+        return;
+      }
+    });
+
+    ws.on("close", () => {
+      clientesAtivos.delete(ws);
+      unsubscribeClient(ws);
+    });
+
+    ws.on("error", (err) => {
+      console.warn("⚠️ Erro WS client:", err.message || err);
+      try { ws.close(); } catch {}
     });
 
   } catch (err) {
