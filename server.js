@@ -1829,12 +1829,7 @@ async function radarBatchOI(grupo) {
 
   const t0 = Date.now();
  try {
-  const resp = await fetch(`http://localhost:${PORT}/oi-lote`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ symbols: batch })
-  });
-  const lote = await resp.json();
+  const lote = await getOiLoteInterno(batch);
 
   for (const s of batch) {
     try {
@@ -1907,7 +1902,7 @@ async function radarBatchVolume(grupo) {
   const batch = symbols.slice(idx, idx + batchSize);
 
   try {
- const lote = await getOiLoteInterno(batch);
+ const lote = await getVolumeLoteInterno(batch, "5m");
 
 
     for (const s of batch) {
