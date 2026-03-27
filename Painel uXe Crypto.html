@@ -1931,22 +1931,26 @@ function conectarWSServidor() {
     wsConectado = true;
     retryCount = 0;
     console.log("✅ Conectado ao WebSocket do servidor e iniciando webSocketTicker!");
+
     iniciarWebSocketTicker(true);
 
     if (Array.isArray(symbolsParaExibir) && symbolsParaExibir.length) {
-  const symbolsUnicos = [...new Set(symbolsParaExibir.map(s => String(s || "").toUpperCase()))];
+      const symbolsUnicos = [...new Set(
+        symbolsParaExibir.map(s => String(s || "").toUpperCase())
+      )];
 
       setTimeout(() => {
         if (wsServer.readyState === WebSocket.OPEN) {
-          wsServer.send(JSON.stringify({ action: "subscribe", symbols: symbolsUnicos }));
+          wsServer.send(JSON.stringify({
+            action: "subscribe",
+            symbols: symbolsUnicos
+          }));
           console.log(`🛰️ Inscrição confirmada: ${symbolsUnicos.length} pares`);
         }
       }, 800);
-      }
-      };
-  // =====================================================
-  // 🧠 RECEBIMENTO DAS MENSAGENS WEBSOCKET
-  // =====================================================
+    }
+  };
+
   wsServer.onmessage = (event) => {
     try {
       let msg = event.data;
@@ -1964,21 +1968,20 @@ function conectarWSServidor() {
         msg = { ...msg.data, type: msg.type || msg.data.type };
       }
 
-      
+      if (!msg || typeof msg !== "object") return;
+
       if (msg.type === "pong") {
         wsServer.ultimoPong = Date.now();
         return;
       }
 
-      // =============================
-      // 📈 Ticker (preços em tempo real)
-      // =============================
-      if (msg.type === "ticker" && msg.symbol && msg.price) {
+      if (msg.type === "ticker" && msg.symbol && msg.price != null) {
         const symbol = normalizarSymbol(msg.symbol);
         const preco = Number(msg.price);
         if (!Number.isFinite(preco) || preco <= 0) return;
 
         ultimoPrecoWS.set(symbol, { preco, ts: Date.now() });
+
         historicoPrecos[symbol] = historicoPrecos[symbol] || [];
         historicoPrecos[symbol].push({ ts: Date.now(), preco });
         if (historicoPrecos[symbol].length > 120) historicoPrecos[symbol].shift();
@@ -1989,6 +1992,7 @@ function conectarWSServidor() {
             preco < 0.01 ? preco.toFixed(8) :
             preco < 10   ? preco.toFixed(5) :
                            preco.toFixed(2);
+
           atualizarComAnimacao(el, `$${precoFormatado}`);
           el.dataset.preco = preco;
         }
@@ -2001,83 +2005,74 @@ function conectarWSServidor() {
         return;
       }
 
-      // =============================
-      // 🕯️ Candle + Histórico local (sparks)
-      // =============================
-    if (msg.type === "candle_hist") {
-  const { symbol, tf, candles } = msg;
-  if (tf !== "5m" || !Array.isArray(candles)) return;
+      if (msg.type === "candle" && msg.symbol && msg.tf) {
+        const { symbol, tf, open, close, vol, ts, exp, volRel } = msg;
 
-  if (!window.candlesHist) window.candlesHist = {};
-  if (!window.candlesCache) window.candlesCache = {};
+        if (!window.candlesCache) window.candlesCache = {};
+        if (!window.candlesHist) window.candlesHist = {};
+        if (!window.candlesCache[symbol]) window.candlesCache[symbol] = {};
+        if (!window.candlesHist[symbol]) window.candlesHist[symbol] = [];
 
-  const hist = candles
-    .map(c => ({
-      open: Number(c.open),
-      close: Number(c.close),
-      vol: Number(c.vol ?? 0),
-      exp: Number.isFinite(Number(c.exp)) ? Number(c.exp) : 50,
-      volRel: Number.isFinite(Number(c.volRel)) ? Number(c.volRel) : 1,
-      ts: Number(c.ts || Date.now())
-    }))
-    .filter(c =>
-      Number.isFinite(c.open) &&
-      Number.isFinite(c.close) &&
-      Number.isFinite(c.vol) &&
-      Number.isFinite(c.ts)
-    );
+        window.candlesCache[symbol][tf] = {
+          open: Number(open),
+          close: Number(close),
+          vol: Number(vol ?? 0),
+          exp: Number.isFinite(Number(exp)) ? Number(exp) : 50,
+          volRel: Number.isFinite(Number(volRel)) ? Number(volRel) : 1,
+          ts: Number(ts || Date.now())
+        };
 
-  window.candlesHist[symbol] = hist.slice(-30);
+        if (tf === "5m") {
+          const hist = window.candlesHist[symbol];
+          const novo = {
+            open: Number(open),
+            close: Number(close),
+            vol: Number(vol ?? 0),
+            exp: Number.isFinite(Number(exp)) ? Number(exp) : 50,
+            volRel: Number.isFinite(Number(volRel)) ? Number(volRel) : 1,
+            ts: Number(ts || Date.now())
+          };
 
-  // sincroniza também o candle atual em candlesCache
-  const ultimo = window.candlesHist[symbol][window.candlesHist[symbol].length - 1];
-  if (ultimo) {
-    if (!window.candlesCache[symbol]) window.candlesCache[symbol] = {};
-    window.candlesCache[symbol]["5m"] = {
-      open: ultimo.open,
-      close: ultimo.close,
-      vol: ultimo.vol,
-      exp: ultimo.exp,
-      volRel: ultimo.volRel,
-      ts: ultimo.ts
-    };
-  }
+          const ultimo = hist[hist.length - 1];
+          if (!ultimo || Math.abs(novo.ts - ultimo.ts) > 240000) {
+            hist.push(novo);
+            if (hist.length > 30) hist.splice(0, hist.length - 30);
+          } else {
+            hist[hist.length - 1] = novo;
+          }
 
-  const linha = document.getElementById(`row-${symbol}`);
-  if (linha) {
-    const sparkCell = linha.querySelector(".col-spark");
-    if (sparkCell && typeof gerarSparkSVG === "function") {
-      const svg = gerarSparkSVG(window.candlesHist[symbol], symbol);
-      if (svg && svg.trim() !== "") {
-        sparkCell.innerHTML = svg;
+          const linha = document.getElementById(`row-${symbol}`);
+          if (linha) {
+            const sparkCell = linha.querySelector(".col-spark");
+            if (sparkCell && typeof gerarSparkSVG === "function") {
+              const svg = gerarSparkSVG(hist, symbol);
+              if (svg && svg.trim() !== "") sparkCell.innerHTML = svg;
+            }
+          }
+        }
+
+        const cell = document.getElementById(`candle-${tf}-${symbol}`);
+        if (cell) {
+          const c = window.candlesCache[symbol][tf];
+          const color = getCandleColor(c.open, c.close, c.exp, c.volRel);
+          cell.innerHTML = `
+            <svg width="20" height="20">
+              <rect x="2" y="2" width="16" height="16" rx="3" ry="3"
+                    fill="${color}" stroke="#111" stroke-width="1"/>
+            </svg>`;
+        }
+
+        return;
       }
-    }
-  }
 
-  const cell = document.getElementById(`candle-5m-${symbol}`);
-  if (cell && ultimo && typeof getCandleColor === "function") {
-    const color = getCandleColor(ultimo.open, ultimo.close, ultimo.exp, ultimo.volRel);
-    cell.innerHTML = `
-      <svg width="20" height="20">
-        <rect x="2" y="2" width="16" height="16" rx="3" ry="3"
-              fill="${color}" stroke="#111" stroke-width="1"/>
-      </svg>`;
-  }
-
-  return;
-}
-
-          
-
-      // =======================================================
-      // 📦 Histórico inicial (candle_hist → preenchimento inicial)
-      // =======================================================
-        if (msg.type === "candle_hist") {
+      if (msg.type === "candle_hist") {
         const { symbol, tf, candles } = msg;
         if (tf !== "5m" || !Array.isArray(candles)) return;
-      
+
         if (!window.candlesHist) window.candlesHist = {};
-        window.candlesHist[symbol] = candles
+        if (!window.candlesCache) window.candlesCache = {};
+
+        const hist = candles
           .map(c => ({
             open: Number(c.open),
             close: Number(c.close),
@@ -2086,33 +2081,62 @@ function conectarWSServidor() {
             volRel: Number.isFinite(Number(c.volRel)) ? Number(c.volRel) : 1,
             ts: Number(c.ts ?? Date.now())
           }))
+          .filter(c =>
+            Number.isFinite(c.open) &&
+            Number.isFinite(c.close) &&
+            Number.isFinite(c.vol) &&
+            Number.isFinite(c.ts)
+          )
           .slice(-30);
-      
+
+        window.candlesHist[symbol] = hist;
+
+        const ultimo = hist[hist.length - 1];
+        if (ultimo) {
+          if (!window.candlesCache[symbol]) window.candlesCache[symbol] = {};
+          window.candlesCache[symbol]["5m"] = {
+            open: ultimo.open,
+            close: ultimo.close,
+            vol: ultimo.vol,
+            exp: ultimo.exp,
+            volRel: ultimo.volRel,
+            ts: ultimo.ts
+          };
+        }
+
         const linha = document.getElementById(`row-${symbol}`);
         if (linha) {
           const sparkCell = linha.querySelector(".col-spark");
           if (sparkCell && typeof gerarSparkSVG === "function") {
             const sparkSvg = gerarSparkSVG(window.candlesHist[symbol], symbol);
-            sparkCell.innerHTML = sparkSvg;
+            if (sparkSvg && sparkSvg.trim() !== "") {
+              sparkCell.innerHTML = sparkSvg;
+            }
           }
         }
-      
+
+        const cell = document.getElementById(`candle-5m-${symbol}`);
+        if (cell && ultimo && typeof getCandleColor === "function") {
+          const color = getCandleColor(ultimo.open, ultimo.close, ultimo.exp, ultimo.volRel);
+          cell.innerHTML = `
+            <svg width="20" height="20">
+              <rect x="2" y="2" width="16" height="16" rx="3" ry="3"
+                    fill="${color}" stroke="#111" stroke-width="1"/>
+            </svg>`;
+        }
+
         return;
       }
 
       console.log("ℹ️ WS ignorado:", msg);
-
     } catch (e) {
       console.warn("⚠️ Erro parse msg WS servidor:", e, event.data);
     }
   };
 
-  // =====================================================
-  // 🔌 RECONEXÃO AUTOMÁTICA
-  // =====================================================
   wsServer.onclose = () => {
     wsConectado = false;
-    console.warn("⚠️ Conexão WS servidor perdida. Tentando reconectar...");
+    console.warn("⚠️ Conexão WS servidor perdida. Tentando reconectar.");
     setTimeout(() => {
       retryCount++;
       conectarWSServidor();
@@ -2120,12 +2144,41 @@ function conectarWSServidor() {
   };
 
   wsServer.onerror = (err) => {
-    console.warn("❌ Erro WS servidor:", err.message || err);
-    wsServer.close();
+    console.warn("❌ Erro WS servidor:", err?.message || err);
+    try { wsServer.close(); } catch {}
   };
 }
 
+function iniciarWebSocketTicker(force = false) {
+  if (!Array.isArray(symbolsParaExibir) || symbolsParaExibir.length === 0) return;
 
+  const agora = Date.now();
+  if (!force && agora - ultimaInscricao < 5000) return;
+  ultimaInscricao = agora;
+
+  if (wsConectado && wsServer?.readyState === WebSocket.OPEN) {
+    const unicos = [...new Set(
+      symbolsParaExibir.map(s => String(s || "").toUpperCase())
+    )];
+
+    const lotes = [];
+    for (let i = 0; i < unicos.length; i += 100) {
+      lotes.push(unicos.slice(i, i + 100));
+    }
+
+    lotes.forEach((lote, idx) => {
+      setTimeout(() => {
+        if (wsServer?.readyState === WebSocket.OPEN) {
+          wsServer.send(JSON.stringify({ action: "subscribe", symbols: lote }));
+          console.log(`🛰️ [Ticker] Lote ${idx + 1}/${lotes.length} enviado (${lote.length} pares)`);
+        }
+      }, idx * 400);
+    });
+  } else {
+    console.warn("⚠️ WS servidor ainda não conectado. Reagendando inscrição...");
+    setTimeout(() => iniciarWebSocketTicker(true), 1500);
+  }
+}
 
 setInterval(() => {
   if (!wsConectado && (!wsServer || wsServer.readyState >= 2)) {
