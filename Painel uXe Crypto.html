@@ -1976,34 +1976,41 @@ function conectarWSServidor() {
       }
 
       if (msg.type === "ticker" && msg.symbol && msg.price != null) {
-        const symbol = normalizarSymbol(msg.symbol);
-        const preco = Number(msg.price);
-        if (!Number.isFinite(preco) || preco <= 0) return;
+  const symbol = normalizarSymbol(msg.symbol);
+  const preco = Number(msg.price);
+  if (!Number.isFinite(preco) || preco <= 0) return;
 
-        ultimoPrecoWS.set(symbol, { preco, ts: Date.now() });
+  ultimoPrecoWS.set(symbol, { preco, ts: Date.now() });
 
-        historicoPrecos[symbol] = historicoPrecos[symbol] || [];
-        historicoPrecos[symbol].push({ ts: Date.now(), preco });
-        if (historicoPrecos[symbol].length > 120) historicoPrecos[symbol].shift();
+  historicoPrecos[symbol] = historicoPrecos[symbol] || [];
+  historicoPrecos[symbol].push({ ts: Date.now(), preco });
+  if (historicoPrecos[symbol].length > 120) historicoPrecos[symbol].shift();
 
-        const el = document.getElementById(`preco-${symbol}`);
-        if (el) {
-          const precoFormatado =
-            preco < 0.01 ? preco.toFixed(8) :
-            preco < 10   ? preco.toFixed(5) :
-                           preco.toFixed(2);
+  const row = document.getElementById(`row-${symbol}`);
+  const precoEl = row?.querySelector(".col-preco");
 
-          atualizarComAnimacao(el, `$${precoFormatado}`);
-          el.dataset.preco = preco;
-        }
+  if (precoEl) {
+    const precoFormatado =
+      preco < 0.01 ? preco.toFixed(8) :
+      preco < 10   ? preco.toFixed(5) :
+                     preco.toFixed(2);
 
-        if (symbol === "BTCUSDT") {
-          const elBtc = document.getElementById("btc-price");
-          if (elBtc) atualizarComAnimacao(elBtc, `$${preco.toFixed(2)}`);
-        }
+    atualizarComAnimacao(precoEl, `$${precoFormatado}`);
+    precoEl.dataset.preco = String(preco);
+  }
 
-        return;
-      }
+  if (symbol === "BTCUSDT") {
+    const elBtc = document.getElementById("btc-price");
+    if (elBtc) atualizarComAnimacao(elBtc, `$${preco.toFixed(2)}`);
+  }
+
+  // força atualização incremental das colunas de variação
+  try {
+    atualizarPrecoVariacao(symbol);
+  } catch {}
+
+  return;
+}
 
       if (msg.type === "candle" && msg.symbol && msg.tf) {
         const { symbol, tf, open, close, vol, ts, exp, volRel } = msg;
