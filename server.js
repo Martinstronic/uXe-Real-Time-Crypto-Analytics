@@ -770,23 +770,22 @@ function sendVisualHistoryToClient(ws, symbol, tf = VISUAL_BOOTSTRAP_TF, limit =
       }))
     }));
 
-
-    const ult = cacheCandles[symbol]?.[VISUAL_BOOTSTRAP_TF]?.slice(-1)[0];
-if (ult) {
-  try {
-    ws.send(JSON.stringify({
-      type: "candle",
-      symbol,
-      tf: VISUAL_BOOTSTRAP_TF,
-      open: ult.open,
-      close: ult.close,
-      vol: ult.vol,
-      ts: ult.ts,
-      exp: Number.isFinite(ult.exp) ? ult.exp : 50,
-      volRel: Number.isFinite(ult.volRel) ? ult.volRel : 1
-    }));
-  } catch {}
-}
+    const ult = cacheCandles[s]?.[tf]?.slice(-1)[0];
+    if (ult) {
+      try {
+        ws.send(JSON.stringify({
+          type: "candle",
+          symbol: s,
+          tf,
+          open: ult.open,
+          close: ult.close,
+          vol: ult.vol,
+          ts: ult.ts,
+          exp: Number.isFinite(ult.exp) ? ult.exp : 50,
+          volRel: Number.isFinite(ult.volRel) ? ult.volRel : 1
+        }));
+      } catch {}
+    }
 
     return true;
   } catch (err) {
